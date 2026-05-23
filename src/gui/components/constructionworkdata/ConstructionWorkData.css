@@ -1,0 +1,43 @@
+/* ── ConstructionWorkData Form Styles (Bootstrap Overrides) ─────────────────────────── */
+
+.form-control,
+.form-select {
+    background-color: var(--app-input-bg) !important;
+    border-color: var(--app-input-border) !important;
+    color: var(--app-text-primary) !important;
+    transition: all 0.3s;
+}
+
+.input-group-text {
+    background-color: var(--app-input-bg) !important;
+    border-color: var(--app-input-border) !important;
+    color: var(--app-text-secondary) !important;
+    transition: all 0.3s;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--app-input-bg) !important;
+    border-color: var(--app-primary-accent) !important;
+    color: var(--app-text-primary) !important;
+    box-shadow: 0 0 0 0.2rem var(--app-accent-bg, rgba(115, 165, 175, 0.25)) !important;
+}
+
+.form-control:disabled,
+.form-control[readonly] {
+    background-color: var(--app-bg-alt) !important;
+    opacity: 1 !important;
+}
+
+.form-control::placeholder {
+    color: var(--app-text-muted) !important;
+    font-style: italic !important;
+}
+
+/* Table Overrides for Theme Support */
+.table {
+    --bs-table-bg: transparent !important;
+    --bs-table-color: var(--app-text-primary) !important;
+    color: var(--app-text-primary) !important;
+    border-color: var(--app-border-light) !important;
+}
