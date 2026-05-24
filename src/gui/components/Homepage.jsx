@@ -229,11 +229,11 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
             <NewProject show={showModal} handleClose={handleCloseModal} onProjectOpen={onProjectOpen} onProjectCreate={handleProjectCreate} isDarkMode={isDarkMode} theme={theme} />
 
             {/* Settings Modal */}
-            <SettingsModal 
-                show={showSettingsModal} 
-                handleClose={() => setShowSettingsModal(false)} 
-                isDarkMode={isDarkMode} 
-                theme={theme} 
+            <SettingsModal
+                show={showSettingsModal}
+                handleClose={() => setShowSettingsModal(false)}
+                isDarkMode={isDarkMode}
+                theme={theme}
                 initialUserName={userName}
                 userSettings={userSettings}
                 onSaveSettings={(settings) => {

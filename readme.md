@@ -63,15 +63,15 @@ npm -v
 
 2. **Install Dependencies**
    Run the following command to download and install all required node modules:
-   ```bash
+
    npm install
-   ```
+   
 
 3. **Launch the Development Server**
    Start the Vite dev server with Hot Module Replacement (HMR):
-   ```bash
+   
    npm run dev
-   ```
+
    *By default, the application will be hosted at `http://localhost:5173`.*
 
 ---

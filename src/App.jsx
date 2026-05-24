@@ -103,21 +103,21 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
 
   const handleExportProject = () => {
     if (!projectData) return;
-    
+
     const exportData = {
-        project: projectData,
-        checkpoints: checkpoints,
-        logs: logs,
-        exportedAt: new Date().toISOString()
+      project: projectData,
+      checkpoints: checkpoints,
+      logs: logs,
+      exportedAt: new Date().toISOString()
     };
-    
+
     const storageKey = `lcca_export_${projectData.name || 'unnamed'}`;
     localStorage.setItem(storageKey, JSON.stringify(exportData));
-    
+
     const dataStr = JSON.stringify(exportData, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = `${projectData.name || 'project'}_export.json`;
@@ -125,7 +125,7 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     addLog(`Project exported and saved to local storage as '${storageKey}'.`);
   };
 
@@ -163,8 +163,8 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
   }, [setProjectData]);
 
   return (
-    <ProjectDataProvider 
-      key={projectId} 
+    <ProjectDataProvider
+      key={projectId}
       projectId={projectId}
       initialData={projectData}
       onStateChange={handleStateChange}
@@ -205,7 +205,7 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
 function App() {
   const navigate = useNavigate();
 
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true')
+  const [isLoggedIn, setIsLoggedIn] = useState(() => sessionStorage.getItem('isLoggedIn') === 'true')
   const [projectData, setProjectData] = useState({
     name: 'Bridge_Assessment_01',
     bridge_data: {},
@@ -225,11 +225,17 @@ function App() {
     const saved = localStorage.getItem('logs')
     return saved ? JSON.parse(saved) : []
   })
-  const [userName, setUserName] = useState(() => localStorage.getItem('userName') || '')
+  const [userName, setUserName] = useState(() => sessionStorage.getItem('userName') || '')
   const [isLocked, setIsLocked] = useState(false)
 
-  useEffect(() => { localStorage.setItem('isLoggedIn', isLoggedIn); }, [isLoggedIn]);
-  useEffect(() => { localStorage.setItem('userName', userName); }, [userName]);
+  useEffect(() => {
+    // Clear legacy localStorage keys to ensure new sessions launch on the Login page
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userName');
+  }, []);
+
+  useEffect(() => { sessionStorage.setItem('isLoggedIn', isLoggedIn); }, [isLoggedIn]);
+  useEffect(() => { sessionStorage.setItem('userName', userName); }, [userName]);
   useEffect(() => { localStorage.setItem('checkpoints', JSON.stringify(checkpoints)); }, [checkpoints]);
   useEffect(() => { localStorage.setItem('logs', JSON.stringify(logs)); }, [logs]);
 
@@ -255,7 +261,7 @@ function App() {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     const updateTheme = () => {
       if (userSettings.appearanceMode === 'dark') {
         setIsDarkMode(true);
@@ -409,7 +415,7 @@ function App() {
       <Route path="/login" element={
         isLoggedIn ? <Navigate to="/" replace /> : <Loginpage onLogin={handleAdminLogin} onGuestLogin={(name) => handleLogin(true, name || 'Guest')} />
       } />
-      
+
       <Route path="/" element={
         <ProtectedRoute isLoggedIn={isLoggedIn}>
           <HomePage
@@ -421,7 +427,7 @@ function App() {
           />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/project/:projectId/:nodeId?" element={
         <ProtectedRoute isLoggedIn={isLoggedIn}>
           <ProjectViewWrapper
@@ -437,7 +443,7 @@ function App() {
           />
         </ProtectedRoute>
       } />
-      
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
