@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom'
 import HomePage from './gui/components/Homepage'
 import Loginpage from './gui/Login/Loginpage'
 import ProjectLayout from './gui/components/ProjectLayout'
@@ -16,11 +17,195 @@ import Outputs from './gui/components/outputs/Outputs'
 import { ProjectDataProvider } from './contexts/ProjectDataContext'
 import './App.css'
 
+function ProtectedRoute({ isLoggedIn, children }) {
+  if (!isLoggedIn) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheckpoints, logs, setLogs, isLocked, setIsLocked, addLog }) {
+  const { projectId, nodeId } = useParams();
+  const navigate = useNavigate();
+  const activeNode = nodeId ? decodeURIComponent(nodeId) : 'General Information';
+
+  const updateProjectData = (section, data) => {
+    setProjectData(prev => ({
+      ...prev,
+      [section]: data
+    }))
+  }
+
+  const handleSetActiveNode = (node) => {
+    if (node !== activeNode) {
+      navigate(`/project/${projectId}/${encodeURIComponent(node)}`);
+      addLog(`Switched to ${node} view.`);
+    }
+  }
+
+  const handleSaveCheckpoint = (newCheckpoint) => {
+    setCheckpoints(prev => [...prev, newCheckpoint])
+    addLog(`Checkpoint '${newCheckpoint.label}' created.`)
+  }
+
+  const handleDeleteCheckpoint = (index) => {
+    const cp = checkpoints[index]
+    setCheckpoints(prev => prev.filter((_, i) => i !== index))
+    addLog(`Checkpoint '${cp?.label || 'Unknown'}' deleted.`)
+  }
+
+  const handleNewProject = (data) => {
+    const newProjectId = 'new_project_' + Date.now();
+    setProjectData({
+      ...data,
+      bridge_data: {},
+      financial_data: {},
+      traffic_data: {},
+      construction_work_data: { "Super Structure": { total: 0 }, "grand_total": 0 },
+      carbon_emission_data: {},
+      maintenance_data: {},
+      demolition_data: {},
+      recycling_data: {}
+    })
+    setCheckpoints([])
+    setLogs([])
+    setIsLocked(false)
+    addLog(`New project '${data?.name || 'New Project'}' created.`)
+    navigate(`/project/${newProjectId}/General Information`);
+  }
+
+  const handleOpenProject = (data) => {
+    const openProjectId = data?.id || 'opened_project';
+    setProjectData(data.project || data)
+    if (data.checkpoints) {
+      setCheckpoints(data.checkpoints)
+    }
+    if (data.logs) {
+      setLogs(data.logs)
+    } else {
+      setLogs([])
+    }
+    setIsLocked(false)
+    addLog(`Project '${data?.name || 'Opened Project'}' opened successfully.`)
+    navigate(`/project/${openProjectId}/General Information`);
+  }
+
+  const handleClearLogs = () => {
+    setLogs([])
+  }
+
+  const handleRenameProject = (newName) => {
+    if (projectData) {
+      setProjectData(prev => ({ ...prev, name: newName }))
+      addLog(`Project renamed to '${newName}'.`)
+    }
+  }
+
+  const handleExportProject = () => {
+    if (!projectData) return;
+    
+    const exportData = {
+        project: projectData,
+        checkpoints: checkpoints,
+        logs: logs,
+        exportedAt: new Date().toISOString()
+    };
+    
+    const storageKey = `lcca_export_${projectData.name || 'unnamed'}`;
+    localStorage.setItem(storageKey, JSON.stringify(exportData));
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${projectData.name || 'project'}_export.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    addLog(`Project exported and saved to local storage as '${storageKey}'.`);
+  };
+
+  const CONTENT_MAP = {
+    'General Information': <ProjectInformationPlaceholder key="general" data={projectData.bridge_data} onUpdate={(d) => updateProjectData('bridge_data', d)} />,
+    'Bridge Data': <BridgeData key="bridge" data={projectData.bridge_data} onUpdate={(d) => updateProjectData('bridge_data', d)} />,
+    'Financial Data': <FinancialData key="financial" data={projectData.financial_data} onUpdate={(d) => updateProjectData('financial_data', d)} />,
+    'Traffic Data': <TrafficData key="traffic" data={projectData.traffic_data} onUpdate={(d) => updateProjectData('traffic_data', d)} />,
+    'Construction Work Data': <ConstructionWorkData key="cw_main" data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} setActiveNode={handleSetActiveNode} />,
+    'Foundation': <ConstructionWorkData key="cw_foundation" data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} setActiveNode={handleSetActiveNode} />,
+    'Sub Structure': <ConstructionWorkData key="cw_sub" data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} initialTab="SubStructure" setActiveNode={handleSetActiveNode} />,
+    'Super Structure': <ConstructionWorkData key="cw_super" data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} initialTab="SuperStructure" setActiveNode={handleSetActiveNode} />,
+    'Miscellaneous': <ConstructionWorkData key="cw_misc" data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} initialTab="Miscellaneous" setActiveNode={handleSetActiveNode} />,
+    'Carbon Emission Data': <CarbonEmissionContainer key="ce_main" data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} />,
+    'Material Emissions': <CarbonEmissionContainer key="ce_material" data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Material" />,
+    'Transportation Emissions': <CarbonEmissionContainer key="ce_transport" data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Transportation" />,
+    'Machinery Emissions': <CarbonEmissionContainer key="ce_machinery" data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Machinery" />,
+    'Traffic Diversion Emissions': <CarbonEmissionContainer key="ce_traffic" data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Traffic" />,
+    'Social Cost of Carbon': <CarbonEmissionContainer key="ce_social" data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="SocialCost" />,
+    'Maintenance and Repair': <MaintenanceAndRepair key="maintenance" addLog={addLog} />,
+    'Recycling': <Recycling key="recycling" addLog={addLog} />,
+    'Demolition': <Demolition key="demolition" addLog={addLog} />,
+    'Logs': <Logs key="logs" />,
+    'Outputs': <Outputs key="outputs" addLog={addLog} />,
+  }
+
+  const contentKey = Object.keys(CONTENT_MAP).find(k => k.toLowerCase() === activeNode.toLowerCase()) || activeNode;
+  const content = CONTENT_MAP[contentKey] || null;
+
+  const handleStateChange = React.useCallback((data) => {
+    setProjectData(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
+      return { ...prev, ...data };
+    });
+  }, [setProjectData]);
+
+  return (
+    <ProjectDataProvider 
+      key={projectId} 
+      projectId={projectId}
+      initialData={projectData}
+      onStateChange={handleStateChange}
+    >
+      <ProjectLayout
+        projectId={projectId}
+        activeNode={activeNode}
+        setActiveNode={handleSetActiveNode}
+        onBackToHome={() => {
+          addLog("Project closed. Returning to home.");
+          navigate('/');
+        }}
+        checkpoints={checkpoints}
+        onSaveCheckpoint={handleSaveCheckpoint}
+        onDeleteCheckpoint={handleDeleteCheckpoint}
+        onNewProject={handleNewProject}
+        onOpenProject={handleOpenProject}
+        addLog={addLog}
+        isLocked={isLocked}
+        setIsLocked={setIsLocked}
+        projectName={projectData?.name}
+        projectData={projectData}
+        onRenameProject={handleRenameProject}
+        onExportProject={handleExportProject}
+      >
+        {content ? React.cloneElement(content, {
+          checkpoints,
+          logs,
+          onClearLogs: handleClearLogs,
+          isLocked: isLocked,
+          projectData: projectData
+        }) : <div className="p-4 text-muted fst-italic">Select a section from the sidebar to begin.</div>}
+      </ProjectLayout>
+    </ProjectDataProvider>
+  )
+}
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isProjectOpen, setIsProjectOpen] = useState(false)
-  const [activeProjectId, setActiveProjectId] = useState(() => localStorage.getItem('activeProjectId') || 'default_project')
+  const navigate = useNavigate();
+
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true')
   const [projectData, setProjectData] = useState({
     name: 'Bridge_Assessment_01',
     bridge_data: {},
@@ -32,7 +217,6 @@ function App() {
     demolition_data: {},
     recycling_data: {}
   })
-  const [activeNode, setActiveNode] = useState(() => localStorage.getItem('activeNode') || 'General Information')
   const [checkpoints, setCheckpoints] = useState(() => {
     const saved = localStorage.getItem('checkpoints')
     return saved ? JSON.parse(saved) : []
@@ -43,12 +227,8 @@ function App() {
   })
   const [userName, setUserName] = useState(() => localStorage.getItem('userName') || '')
   const [isLocked, setIsLocked] = useState(false)
-  const [navTrigger, setNavTrigger] = useState(Date.now())
 
   useEffect(() => { localStorage.setItem('isLoggedIn', isLoggedIn); }, [isLoggedIn]);
-  useEffect(() => { localStorage.setItem('isProjectOpen', isProjectOpen); }, [isProjectOpen]);
-  useEffect(() => { localStorage.setItem('activeProjectId', activeProjectId); }, [activeProjectId]);
-  useEffect(() => { localStorage.setItem('activeNode', activeNode); }, [activeNode]);
   useEffect(() => { localStorage.setItem('userName', userName); }, [userName]);
   useEffect(() => { localStorage.setItem('checkpoints', JSON.stringify(checkpoints)); }, [checkpoints]);
   useEffect(() => { localStorage.setItem('logs', JSON.stringify(logs)); }, [logs]);
@@ -82,12 +262,11 @@ function App() {
       } else if (userSettings.appearanceMode === 'light') {
         setIsDarkMode(false);
       } else {
-        // Auto
         setIsDarkMode(mediaQuery.matches);
       }
     };
 
-    updateTheme(); // Call on appearanceMode change
+    updateTheme();
 
     const handleChange = (e) => {
       if (userSettings.appearanceMode === 'Auto(follow os)') {
@@ -208,211 +387,59 @@ function App() {
     setLogs(prev => [...prev, `[${time}] ${message}`])
   }
 
-  const updateProjectData = (section, data) => {
-    setProjectData(prev => ({
-      ...prev,
-      [section]: data
-    }))
-  }
-
   const handleLogin = (isGuest = false, name = "Admin") => {
     setIsLoggedIn(true)
     setUserName(name)
     addLog(isGuest ? `Guest user '${name}' logged in.` : `User '${name}' logged in.`)
+    navigate('/')
   }
 
+  const handleAdminLogin = (credentials) => {
+    const namePart = credentials.email ? credentials.email.split('@')[0] : 'Admin';
+    handleLogin(false, namePart);
+  };
+
   const handleProjectOpen = (projectId = 'default_project', projectName = 'Default Project') => {
-    setActiveProjectId(projectId);
-    setIsProjectOpen(true)
+    navigate(`/project/${projectId}/General Information`)
     addLog(`Project '${projectName}' opened successfully.`)
   }
 
-  const handleNewProject = (data) => {
-    const projectId = 'new_project_' + Date.now();
-    setActiveProjectId(projectId);
-    setProjectData({
-      ...data,
-      bridge_data: {},
-      financial_data: {},
-      traffic_data: {},
-      construction_work_data: { "Super Structure": { total: 0 }, "grand_total": 0 },
-      carbon_emission_data: {},
-      maintenance_data: {},
-      demolition_data: {},
-      recycling_data: {}
-    })
-    setCheckpoints([])
-    setLogs([])
-    setIsLocked(false)
-    setActiveNode('General Information')
-    setIsProjectOpen(true)
-    addLog(`New project '${data?.name || 'New Project'}' created.`)
-  }
-
-  const handleOpenProject = (data) => {
-    const projectId = data?.id || 'opened_project';
-    setActiveProjectId(projectId);
-    setProjectData(data.project || data)
-    if (data.checkpoints) {
-      setCheckpoints(data.checkpoints)
-    }
-    if (data.logs) {
-      setLogs(data.logs)
-    } else {
-      setLogs([])
-    }
-    setIsLocked(false)
-    setActiveNode('General Information')
-    setIsProjectOpen(true)
-    addLog(`Project '${data?.name || 'Opened Project'}' opened successfully.`)
-  }
-
-  const handleSaveCheckpoint = (newCheckpoint) => {
-    setCheckpoints(prev => [...prev, newCheckpoint])
-    addLog(`Checkpoint '${newCheckpoint.label}' created.`)
-  }
-
-  const handleDeleteCheckpoint = (index) => {
-    const cp = checkpoints[index]
-    setCheckpoints(prev => prev.filter((_, i) => i !== index))
-    addLog(`Checkpoint '${cp?.label || 'Unknown'}' deleted.`)
-  }
-
-  const handleClearLogs = () => {
-    setLogs([])
-  }
-
-  const handleSetActiveNode = (node) => {
-    setNavTrigger(Date.now())
-    if (node !== activeNode) {
-      setActiveNode(node)
-      addLog(`Switched to ${node} view.`)
-    }
-  }
-
-  const CONTENT_MAP = {
-    'General Information': <ProjectInformationPlaceholder data={projectData.bridge_data} onUpdate={(d) => updateProjectData('bridge_data', d)} />,
-    'Bridge Data': <BridgeData data={projectData.bridge_data} onUpdate={(d) => updateProjectData('bridge_data', d)} />,
-    'Financial Data': <FinancialData data={projectData.financial_data} onUpdate={(d) => updateProjectData('financial_data', d)} />,
-    'Traffic Data': <TrafficData data={projectData.traffic_data} onUpdate={(d) => updateProjectData('traffic_data', d)} />,
-    'Construction Work Data': <ConstructionWorkData data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} setActiveNode={setActiveNode} />,
-    'Foundation': <ConstructionWorkData data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} setActiveNode={setActiveNode} />,
-    'Sub Structure': <ConstructionWorkData data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} initialTab="SubStructure" setActiveNode={setActiveNode} />,
-    'Super Structure': <ConstructionWorkData data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} initialTab="SuperStructure" setActiveNode={setActiveNode} />,
-    'Miscellaneous': <ConstructionWorkData data={projectData.construction_work_data} onUpdate={(d) => updateProjectData('construction_work_data', d)} initialTab="Miscellaneous" setActiveNode={setActiveNode} />,
-    'Carbon Emission Data': <CarbonEmissionContainer data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} />,
-    'Material Emissions': <CarbonEmissionContainer data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Material" />,
-    'Transportation Emissions': <CarbonEmissionContainer data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Transportation" />,
-    'Machinery Emissions': <CarbonEmissionContainer data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Machinery" />,
-    'Traffic Diversion Emissions': <CarbonEmissionContainer data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="Traffic" />,
-    'Social Cost of Carbon': <CarbonEmissionContainer data={projectData.carbon_emission_data} onUpdate={(d) => updateProjectData('carbon_emission_data', d)} initialTab="SocialCost" />,
-    'Maintenance and Repair': <MaintenanceAndRepair />,
-    'Recycling': <Recycling />,
-    'Demolition': <Demolition />,
-    'Logs': <Logs />,
-    'Outputs': <Outputs addLog={addLog} />,
-  }
-
-  const handleRenameProject = (newName) => {
-    if (projectData) {
-      setProjectData(prev => ({ ...prev, name: newName }))
-      addLog(`Project renamed to '${newName}'.`)
-    }
-  }
-
-  const handleExportProject = () => {
-    if (!projectData) return;
-    
-    const exportData = {
-        project: projectData,
-        checkpoints: checkpoints,
-        logs: logs,
-        exportedAt: new Date().toISOString()
-    };
-    
-    // 1. Save to browser localStorage (simulating a internal file manager storage)
-    const storageKey = `lcca_export_${projectData.name || 'unnamed'}`;
-    localStorage.setItem(storageKey, JSON.stringify(exportData));
-    
-    // 2. Trigger file download for external storage
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${projectData.name || 'project'}_export.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    addLog(`Project exported and saved to local storage as '${storageKey}'.`);
-  };
-
-  if (!isLoggedIn) {
-    const handleAdminLogin = (credentials) => {
-      const namePart = credentials.email ? credentials.email.split('@')[0] : 'Admin';
-      handleLogin(false, namePart);
-    };
-    return <Loginpage onLogin={handleAdminLogin} onGuestLogin={(name) => handleLogin(true, name || 'Guest')} />
-  }
-
-  if (isProjectOpen) {
-    const content = CONTENT_MAP[activeNode] || null
-    return (
-      <ProjectDataProvider 
-        key={activeProjectId} 
-        projectId={activeProjectId}
-        initialData={projectData}
-        onStateChange={(data) => {
-          setProjectData(prev => {
-            if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
-            return { ...prev, ...data };
-          });
-        }}
-      >
-        <ProjectLayout
-          activeNode={activeNode}
-        setActiveNode={handleSetActiveNode}
-        onBackToHome={() => {
-          setIsProjectOpen(false)
-          addLog("Project closed. Returning to home.")
-        }}
-        checkpoints={checkpoints}
-        onSaveCheckpoint={handleSaveCheckpoint}
-        onDeleteCheckpoint={handleDeleteCheckpoint}
-        onNewProject={handleNewProject}
-        onOpenProject={handleOpenProject}
-        addLog={addLog}
-        isLocked={isLocked}
-        setIsLocked={setIsLocked}
-        projectName={projectData?.name}
-        projectData={projectData}
-        onRenameProject={handleRenameProject}
-        onExportProject={handleExportProject}
-      >
-        {content ? React.cloneElement(content, {
-          checkpoints,
-          logs,
-          onClearLogs: handleClearLogs,
-          isLocked: isLocked,
-          navTrigger: navTrigger,
-          projectData: projectData
-        }) : <div className="p-4 text-muted fst-italic">Select a section from the sidebar to begin.</div>}
-      </ProjectLayout>
-      </ProjectDataProvider>
-    )
-  }
-
   return (
-    <HomePage
-      onProjectOpen={handleProjectOpen}
-      userName={userName}
-      isDarkMode={isDarkMode}
-      userSettings={userSettings}
-      setUserSettings={setUserSettings}
-    />
+    <Routes>
+      <Route path="/login" element={
+        isLoggedIn ? <Navigate to="/" replace /> : <Loginpage onLogin={handleAdminLogin} onGuestLogin={(name) => handleLogin(true, name || 'Guest')} />
+      } />
+      
+      <Route path="/" element={
+        <ProtectedRoute isLoggedIn={isLoggedIn}>
+          <HomePage
+            onProjectOpen={handleProjectOpen}
+            userName={userName}
+            isDarkMode={isDarkMode}
+            userSettings={userSettings}
+            setUserSettings={setUserSettings}
+          />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/project/:projectId/:nodeId?" element={
+        <ProtectedRoute isLoggedIn={isLoggedIn}>
+          <ProjectViewWrapper
+            projectData={projectData}
+            setProjectData={setProjectData}
+            checkpoints={checkpoints}
+            setCheckpoints={setCheckpoints}
+            logs={logs}
+            setLogs={setLogs}
+            isLocked={isLocked}
+            setIsLocked={setIsLocked}
+            addLog={addLog}
+          />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 

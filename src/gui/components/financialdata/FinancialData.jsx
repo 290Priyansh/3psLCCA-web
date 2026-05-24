@@ -261,7 +261,7 @@ const FinancialData = ({ controller }) => {
     // ---- Render --------------------------------------------------------------
 
     return (
-        <div style={{ padding: '24px', maxWidth: '800px', color: 'var(--app-text-primary)', backgroundColor: 'var(--app-bg-card)' }}>
+        <div style={{ padding: '24px', color: 'var(--app-text-primary)' }}>
             <SectionHeader title="Economic Parameters" />
 
             {FINANCIAL_FIELDS.map((field) => (
