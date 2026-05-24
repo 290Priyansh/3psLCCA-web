@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Navbar, Nav, NavDropdown, Button, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { FaHome, FaLock, FaLockOpen, FaInfoCircle, FaCheckCircle, FaUndo, FaSave, FaCalculator, FaHistory, FaFolderOpen, FaPlus, FaSignOutAlt, FaCog } from 'react-icons/fa';
 import SaveCheckpointModal from './SaveCheckpointModal';
@@ -110,7 +111,7 @@ const CustomNavBtn = ({ variant, outlineColor, outlineHoverBg, children, icon: I
     );
 };
 
-const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDeleteCheckpoint, onNewProject, onOpenProject, checkpoints, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject }) => {
+const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDeleteCheckpoint, onNewProject, onOpenProject, checkpoints, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId }) => {
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [showManagerModal, setShowManagerModal] = useState(false);
     const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -141,15 +142,17 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDelete
             `}</style>
             
             {/* Logo and Brand Name */}
-            <Navbar.Brand className="d-flex align-items-center me-3" style={{ cursor: 'pointer', color: 'var(--app-text-primary)', fontWeight: 'bold' }} onClick={onBackToHome}>
+            <Link to="/" className="d-flex align-items-center me-3 navbar-brand" style={{ cursor: 'pointer', color: 'var(--app-text-primary)', fontWeight: 'bold', textDecoration: 'none' }} onClick={() => addLog("Project closed. Returning to home.")}>
                 <img src={Logo3psLCCA} alt="3psLCCA Logo" width="28" height="28" className="me-2" style={{ objectFit: 'contain' }} />
                 <span style={{ fontSize: '1rem' }}>3psLCCA</span>
-            </Navbar.Brand>
+            </Link>
             
             <Navbar.Toggle aria-controls="project-navbar-nav" className="border-0 shadow-none" style={{ filter: 'invert(0.5)' }} />
             <Navbar.Collapse id="project-navbar-nav">
                 <Nav className="me-auto align-items-center flex-row flex-wrap gap-2 gap-lg-0">
-                <NavItemLink icon={FaHome} onClick={onBackToHome} />
+                <Link to="/" className="nav-link px-2 py-1 mx-1 rounded d-flex align-items-center justify-content-center" style={{ color: 'var(--app-text-primary)', transition: 'color 0.2s' }} onClick={() => addLog("Project closed. Returning to home.")}>
+                    <FaHome size={18} />
+                </Link>
                 
                 <CustomDropdown 
                     title="File" 
@@ -180,7 +183,7 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDelete
                     ]}
                 />
 
-                <NavItemLink href="#logs" onClick={() => setActiveNode('Logs')}>Logs</NavItemLink>
+                <Link to={`/project/${projectId}/Logs`} className="nav-link px-2 py-1 mx-1 rounded" style={{ color: 'var(--app-text-primary)' }} onClick={() => setActiveNode('Logs')}>Logs</Link>
             </Nav>
 
             <Nav className="ms-auto align-items-center column-gap-2 flex-row flex-wrap mt-2 mt-lg-0">

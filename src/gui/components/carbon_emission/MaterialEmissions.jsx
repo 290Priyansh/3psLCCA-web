@@ -24,7 +24,7 @@ const MaterialEmissions = ({ controller }) => {
                 const items = section.rows || [];
                 items.forEach(item => {
                     allMats.push({
-                        id: item.id,
+                        id: `${chunkId}-${item.id}`,
                         name: item.workName || 'Unnamed Material',
                         category: category,
                         component: compName,

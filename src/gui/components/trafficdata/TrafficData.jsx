@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
-import './TrafficData.css';
 import wpiDb from '../../../data/wpi_db.json';
 
 // ── Constants & Static Data ──────────────────────────────────────────────────
@@ -89,9 +88,7 @@ const INITIAL_STATE = {
 
 // ── Helper Components ────────────────────────────────────────────────────────
 
-function SectionHeader({ title }) {
-    return <h5 className="section-title mb-4 fw-bold mt-4">{title}</h5>;
-}
+function SectionHeader({ title }) { return <h5 className="mb-4 fw-bold pb-2 mt-4" style={{ borderBottom: '1px solid var(--app-border-dark)', fontSize: '1rem', color: 'var(--app-text-primary)', transition: 'all 0.3s' }}>{title}</h5>; }
 
 function Dropdown({ id, options, value, onChange, placeholder = '— Select —' }) {
     const [open, setOpen] = useState(false);
@@ -156,13 +153,13 @@ function Dropdown({ id, options, value, onChange, placeholder = '— Select —'
 function InputField({ label, hint, value, onChange, unit, required }) {
     return (
         <div className="mb-4">
-            <label className="fw-bold mb-1 d-block small">
+            <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>
                 {label}{required && <span className="text-danger"> *</span>}
             </label>
-            {hint && <div className="text-muted mb-2" style={{ fontSize: '0.8rem' }}>{hint}</div>}
+            {hint && <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>{hint}</div>}
             <div className="input-group">
                 <input type="number" className="form-control" value={value || ''} onChange={(e) => onChange(e.target.value)} />
-                {unit && <span className="input-group-text">{unit}</span>}
+                {unit && <span className="input-group-text border-start-0" style={{ fontSize: '0.8rem', backgroundColor: 'var(--app-input-bg)', borderColor: 'var(--app-input-border)' }}>{unit}</span>}
             </div>
         </div>
     );
@@ -171,7 +168,7 @@ function InputField({ label, hint, value, onChange, unit, required }) {
 function RoadUserCostField({ value, onChange }) {
     return (
         <div className="mb-4">
-            <label className="fw-bold mb-1 d-block small">Road User Cost per Day *</label>
+            <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Road User Cost per Day *</label>
             <div className="input-group">
                 <input
                     type="number"
@@ -279,7 +276,7 @@ function RichTextEditor({ value, onChange }) {
 
     return (
         <div className="mb-4">
-            <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)' }}>Remarks / Notes</label>
+            <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Remarks / Notes</label>
             <div className="border rounded" style={{ borderColor: 'var(--app-input-border)', backgroundColor: 'var(--app-input-bg)' }}>
                 <div className="d-flex flex-wrap align-items-center gap-1 p-2 border-bottom" style={{ borderColor: 'var(--app-input-border)', backgroundColor: 'var(--app-bg-alt)' }}>
                     {TOOLBAR_DEFS.map((btn, i) =>
@@ -404,26 +401,24 @@ const TrafficData = ({ controller }) => {
     };
 
     const renderIndiaMode = () => (
-        <div className="india-mode-container">
+        <div className="d-flex flex-column gap-2">
             <SectionHeader title="Vehicle Traffic Data" />
             <div className="table-responsive mb-4">
-                <table className="table table-bordered table-sm traffic-table text-center align-middle">
-                    <thead>
-                        <tr><th style={{ width: '30%' }}>Vehicle Type</th><th>Vehicles / Day</th><th>Accident %</th><th>PWR</th></tr>
-                    </thead>
+                <table className="table table-bordered table-sm text-center align-middle" style={{ backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)', marginBottom: 0 }}>
+                    <thead><tr><th style={{ width: '30%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicle Type</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicles / Day</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Accident %</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>PWR</th></tr></thead>
                     <tbody>
                         {VEHICLES.map(v => (
                             <tr key={v.key}>
                                 <td className="text-start ps-3 fw-bold">{v.label}</td>
-                                <td className="p-0"><input type="number" className="table-input" value={form.vehicles[v.key]?.vehicles_per_day || 0} onChange={(e) => {
+                                <td className="p-0"><input type="number" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={form.vehicles[v.key]?.vehicles_per_day || 0} onChange={(e) => {
                                     const nextVehicles = { ...form.vehicles, [v.key]: { ...form.vehicles[v.key], vehicles_per_day: Number(e.target.value) } };
                                     setForm(prev => ({ ...prev, vehicles: nextVehicles }));
                                 }} /></td>
-                                <td className="p-0"><input type="number" step="0.01" className="table-input" value={(form.vehicles[v.key]?.accident_percentage || 0).toFixed(2)} onChange={(e) => {
+                                <td className="p-0"><input type="number" step="0.01" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={(form.vehicles[v.key]?.accident_percentage || 0).toFixed(2)} onChange={(e) => {
                                     const nextVehicles = { ...form.vehicles, [v.key]: { ...form.vehicles[v.key], accident_percentage: Number(e.target.value) } };
                                     setForm(prev => ({ ...prev, vehicles: nextVehicles }));
                                 }} /></td>
-                                <td className="p-0">{v.hasPwr ? <input type="number" step="0.01" className="table-input" value={(form.vehicles[v.key]?.pwr || 0).toFixed(2)} onChange={(e) => {
+                                <td className="p-0">{v.hasPwr ? <input type="number" step="0.01" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={(form.vehicles[v.key]?.pwr || 0).toFixed(2)} onChange={(e) => {
                                     const nextVehicles = { ...form.vehicles, [v.key]: { ...form.vehicles[v.key], pwr: Number(e.target.value) } };
                                     setForm(prev => ({ ...prev, vehicles: nextVehicles }));
                                 }} /> : <div className="text-muted">-</div>}</td>
@@ -433,15 +428,15 @@ const TrafficData = ({ controller }) => {
                 </table>
             </div>
 
-            <div className="mb-4 d-flex align-items-center gap-3 custom-checkbox-row">
-                <input type="checkbox" id="force_free_flow" checked={form.force_free_flow} onChange={(e) => setForm(prev => ({ ...prev, force_free_flow: e.target.checked }))} />
-                <label htmlFor="force_free_flow" className="mb-0 fw-bold small">Force free-flow conditions off-peak</label>
+            <div className="mb-4 d-flex align-items-center gap-3">
+                <input type="checkbox" id="force_free_flow" className="form-check-input m-0" style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--app-primary-accent)' }} checked={form.force_free_flow} onChange={(e) => setForm(prev => ({ ...prev, force_free_flow: e.target.checked }))} />
+                <label htmlFor="force_free_flow" className="mb-0 fw-bold small" style={{ cursor: 'pointer' }}>Force free-flow conditions off-peak</label>
             </div>
 
             <SectionHeader title="Alternate Road Configuration" />
             <div className="mb-4">
-                <label className="fw-bold mb-1 d-block small">Alternate Road Carriageway *</label>
-                <div className="text-muted mb-2" style={{ fontSize: '0.8rem' }}>Lane configuration of the alternate route.</div>
+                <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Alternate Road Carriageway *</label>
+                <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>Lane configuration of the alternate route.</div>
                 <select className="form-select" value={form.alternate_road.alternate_road_carriageway} onChange={(e) => {
                     const lane = LANE_TYPES.find(l => l.name === e.target.value);
                     setForm(prev => ({ ...prev, alternate_road: { alternate_road_carriageway: e.target.value, carriage_width_in_m: lane ? lane.width : 0, hourly_capacity: lane ? lane.capacity : 0 } }));
@@ -490,14 +485,14 @@ const TrafficData = ({ controller }) => {
             }} />
 
             <div className="mb-4">
-                <div className="fw-bold mb-2 small">Peak Hour Distribution</div>
+                <div className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Peak Hour Distribution</div>
                 <div className="table-responsive">
-                    <table className="table table-bordered table-sm traffic-table text-center align-middle">
-                        <thead><tr><th style={{ width: '60%' }}>Hour Category</th><th>Traffic Proportion (%)</th></tr></thead>
+                    <table className="table table-bordered table-sm text-center align-middle" style={{ backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)', marginBottom: 0 }}>
+                        <thead><tr><th style={{ width: '60%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Hour Category</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Traffic Proportion (%)</th></tr></thead>
                         <tbody>
                             {[...Array(form.num_peak_hours || 1)].map((_, i) => (
                                 <tr key={i}><td className="text-start ps-3 fw-bold">{form.num_peak_hours > 0 ? `Peak Hour ${i + 1}` : 'Peak Hour 1'}</td><td className="p-0">
-                                    <input type="number" step="0.01" className="table-input" value={((form.peak_distribution[`peak_hour_${i + 1}`] || 0.04) * 100).toFixed(2)} onChange={(e) => setForm(prev => ({ ...prev, peak_distribution: { ...prev.peak_distribution, [`peak_hour_${i + 1}`]: Number(e.target.value) / 100 } }))} /></td></tr>
+                                    <input type="number" step="0.01" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={((form.peak_distribution[`peak_hour_${i + 1}`] || 0.04) * 100).toFixed(2)} onChange={(e) => setForm(prev => ({ ...prev, peak_distribution: { ...prev.peak_distribution, [`peak_hour_${i + 1}`]: Number(e.target.value) / 100 } }))} /></td></tr>
                             ))}
                         </tbody>
                     </table>
@@ -506,7 +501,7 @@ const TrafficData = ({ controller }) => {
 
             <SectionHeader title="WPI Adjustment Factors" />
             <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
-                <label className="fw-bold mb-0">WPI Profile:</label>
+                <label className="fw-bold mb-0" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>WPI Profile:</label>
                 <select className="form-select w-auto" value={form.wpi_profile} onChange={(e) => handleWpiProfileChange(e.target.value)}>
                     {Object.keys(WPI_DATABASE).map(y => <option key={y} value={y}>{y}</option>)}
                     {Object.keys(localCustomProfiles).map(p => <option key={p} value={p}>{p}</option>)}
@@ -521,11 +516,11 @@ const TrafficData = ({ controller }) => {
                 </div>
             </div>
 
-            <div className="table-responsive wpi-table-container mb-4">
-                <table className="table table-bordered table-sm wpi-table text-center align-middle">
+            <div className="table-responsive mb-4" style={{ maxHeight: '500px', overflow: 'auto', border: '1px solid var(--app-border-mid)', borderRadius: '4px' }}>
+                <table className="table table-bordered table-sm text-center align-middle" style={{ backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)', marginBottom: 0 }}>
                     <thead>
-                        <tr><th rowSpan="2" className="text-start ps-2 border-end-0"></th><th colSpan="4">Vehicle Cost</th><th colSpan="1">Commodity</th><th colSpan="2">Pass. & Crew</th><th colSpan="3">Medical Cost</th><th colSpan="1">VOT Cost</th></tr>
-                        <tr>{WPI_COLUMNS.map(col => <th key={col.key}>{col.label}</th>)}</tr>
+                        <tr><th rowSpan="2" className="text-start ps-2 border-end-0" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}></th><th colSpan="4" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicle Cost</th><th colSpan="1" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Commodity</th><th colSpan="2" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Pass. & Crew</th><th colSpan="3" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Medical Cost</th><th colSpan="1" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>VOT Cost</th></tr>
+                        <tr>{WPI_COLUMNS.map(col => <th key={col.key} style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>{col.label}</th>)}</tr>
                     </thead>
                     <tbody>
                         {['Common', ...VEHICLES.map(v => v.label)].map((rowLabel, rIdx) => {
@@ -534,7 +529,7 @@ const TrafficData = ({ controller }) => {
                                 <tr key={rowLabel}><td className="fw-bold text-start ps-3" style={{ whiteSpace: 'nowrap' }}>{rowLabel}</td>
                                     {WPI_COLUMNS.map(col => (
                                         <td key={col.key} className="p-0">
-                                            <input type="number" step="0.0001" className="table-input wpi-cell text-end pe-3" value={(form.wpi_data?.[vKey]?.[col.key] || 0).toFixed(4)} onChange={(e) => handleWpiCellChange(vKey, col.key, e.target.value)} />
+                                            <input type="number" step="0.0001" className="form-control text-end pe-3 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={(form.wpi_data?.[vKey]?.[col.key] || 0).toFixed(4)} onChange={(e) => handleWpiCellChange(vKey, col.key, e.target.value)} />
                                         </td>
                                     ))}
                                 </tr>
@@ -547,14 +542,14 @@ const TrafficData = ({ controller }) => {
     );
 
     return (
-        <div className="traffic-data-page" style={{ padding: '24px', color: 'var(--app-text-primary)', maxWidth: '1400px' }}>
-            <div className="mb-4"><label className="fw-bold mb-2 d-block small">Calculation Mode</label>
+        <div style={{ padding: '24px', color: 'var(--app-text-primary)', maxWidth: '1400px', animation: 'fadeIn 0.4s ease-out', backgroundColor: 'var(--app-bg-main)' }}>
+            <div className="mb-4"><label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Calculation Mode</label>
                 <select className="form-select" style={{ maxWidth: '300px' }} value={form.calculation_mode} onChange={(e) => handleModeChange(e.target.value)}>
                     <option value="INDIA">INDIA</option><option value="GLOBAL">GLOBAL</option>
                 </select>
             </div>
             {form.calculation_mode === 'INDIA' ? renderIndiaMode() : (
-                <div className="global-mode-container"><SectionHeader title="Global Parameters" />
+                <div className="d-flex flex-column gap-2"><SectionHeader title="Global Parameters" />
                     <RoadUserCostField value={form.road_user_cost_per_day} onChange={handleCostChange} />
                 </div>
             )}
@@ -582,48 +577,48 @@ const TrafficData = ({ controller }) => {
 
             {/* Custom Modals */}
             {showSaveAs && (
-                <div className="custom-modal-overlay">
-                    <div className="custom-modal">
-                        <div className="modal-header">
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)', borderRadius: '8px', width: '400px', color: 'var(--app-text-primary)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                        <div style={{ backgroundColor: 'var(--app-bg-alt)', padding: '12px 16px', borderBottom: '1px solid var(--app-border-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h6 className="m-0 fw-bold d-flex align-items-center gap-2">Save Profile As</h6>
-                            <button className="close-btn" onClick={() => setShowSaveAs(false)}>×</button>
+                            <button style={{ background: 'transparent', border: 'none', color: 'var(--app-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }} onMouseEnter={e => e.target.style.color = 'var(--app-text-primary)'} onMouseLeave={e => e.target.style.color = 'var(--app-text-muted)'} onClick={() => setShowSaveAs(false)}>×</button>
                         </div>
-                        <div className="modal-body">
+                        <div style={{ padding: '20px' }}>
                             <div className="mb-3">
-                                <label className="form-label">Profile Name</label>
+                                <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Profile Name</label>
                                 <input type="text" className="form-control" value={saveAsForm.name} onChange={e => setSaveAsForm({...saveAsForm, name: e.target.value})} />
                             </div>
                         </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-outline-secondary me-2" onClick={() => setShowSaveAs(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleSaveAsSubmit}>OK</button>
+                        <div style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end', borderTop: 'none', backgroundColor: 'var(--app-bg-card)', gap: '8px' }}>
+                            <button className="btn" style={{ borderColor: 'transparent', color: 'var(--app-text-primary)', backgroundColor: 'transparent' }} onMouseEnter={e => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'} onMouseLeave={e => e.target.style.backgroundColor = 'transparent'} onClick={() => setShowSaveAs(false)}>Cancel</button>
+                            <button className="btn" style={{ backgroundColor: 'var(--app-primary-accent)', borderColor: 'var(--app-primary-accent)', color: 'var(--app-btn-primary-text)', borderRadius: '6px', padding: '6px 20px' }} onMouseEnter={e => e.target.style.filter = 'brightness(0.9)'} onMouseLeave={e => e.target.style.filter = 'none'} onClick={handleSaveAsSubmit}>OK</button>
                         </div>
                     </div>
                 </div>
             )}
 
             {showInfoModal && (
-                <div className="custom-modal-overlay">
-                    <div className="custom-modal">
-                        <div className="modal-header"><h6>Info</h6><button className="close-btn" onClick={() => setShowInfoModal(false)}>×</button></div>
-                        <div className="modal-body">{infoMessage}</div>
-                        <div className="modal-footer"><button className="btn btn-primary" onClick={() => setShowInfoModal(false)}>OK</button></div>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)', borderRadius: '8px', width: '400px', color: 'var(--app-text-primary)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                        <div style={{ backgroundColor: 'var(--app-bg-alt)', padding: '12px 16px', borderBottom: '1px solid var(--app-border-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><h6>Info</h6><button style={{ background: 'transparent', border: 'none', color: 'var(--app-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }} onMouseEnter={e => e.target.style.color = 'var(--app-text-primary)'} onMouseLeave={e => e.target.style.color = 'var(--app-text-muted)'} onClick={() => setShowInfoModal(false)}>×</button></div>
+                        <div style={{ padding: '20px' }}>{infoMessage}</div>
+                        <div style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end', borderTop: 'none', backgroundColor: 'var(--app-bg-card)', gap: '8px' }}><button className="btn" style={{ backgroundColor: 'var(--app-primary-accent)', borderColor: 'var(--app-primary-accent)', color: 'var(--app-btn-primary-text)', borderRadius: '6px', padding: '6px 20px' }} onMouseEnter={e => e.target.style.filter = 'brightness(0.9)'} onMouseLeave={e => e.target.style.filter = 'none'} onClick={() => setShowInfoModal(false)}>OK</button></div>
                     </div>
                 </div>
             )}
 
             {showImportModal && (
-                <div className="custom-modal-overlay">
-                    <div className="custom-modal">
-                        <div className="modal-header"><h6>Import from Library</h6><button className="close-btn" onClick={() => setShowImportModal(false)}>×</button></div>
-                        <div className="modal-body">
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)', borderRadius: '8px', width: '400px', color: 'var(--app-text-primary)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                        <div style={{ backgroundColor: 'var(--app-bg-alt)', padding: '12px 16px', borderBottom: '1px solid var(--app-border-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><h6>Import from Library</h6><button style={{ background: 'transparent', border: 'none', color: 'var(--app-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }} onMouseEnter={e => e.target.style.color = 'var(--app-text-primary)'} onMouseLeave={e => e.target.style.color = 'var(--app-text-muted)'} onClick={() => setShowImportModal(false)}>×</button></div>
+                        <div style={{ padding: '20px' }}>
                             <select className="form-select" value={importSelected} onChange={e => setImportSelected(e.target.value)}>
                                 <option value="">- Select Profile -</option>
                                 {Object.keys(libraryProfiles).map(k => <option key={k} value={k}>{k}</option>)}
                             </select>
                         </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-primary" onClick={handleImportSubmit}>Import</button>
+                        <div style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end', borderTop: 'none', backgroundColor: 'var(--app-bg-card)', gap: '8px' }}>
+                            <button className="btn" style={{ backgroundColor: 'var(--app-primary-accent)', borderColor: 'var(--app-primary-accent)', color: 'var(--app-btn-primary-text)', borderRadius: '6px', padding: '6px 20px' }} onMouseEnter={e => e.target.style.filter = 'brightness(0.9)'} onMouseLeave={e => e.target.style.filter = 'none'} onClick={handleImportSubmit}>Import</button>
                         </div>
                     </div>
                 </div>
@@ -632,6 +627,7 @@ const TrafficData = ({ controller }) => {
             {validationMsg && (
                 <div className="alert alert-danger p-2 mt-3" style={{ fontSize: '0.8rem' }} role="alert">⚠️ {validationMsg}</div>
             )}
+          <style>{`\n@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }\n`}</style>
         </div>
     );
 };
