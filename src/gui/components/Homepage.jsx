@@ -29,6 +29,9 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
     const [showModal, setShowModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [activeTab, setActiveTab] = useState('home');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filter, setFilter] = useState('recent'); // 'recent', 'name', 'pinned'
+    const fileInputRef = React.useRef(null);
     const [projects, setProjects] = useState(() => {
         const saved = localStorage.getItem('recentProjects');
         return saved ? JSON.parse(saved) : [];
@@ -54,6 +57,46 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
         };
         setProjects(prev => [...prev, newProject]);
         setActiveTab('home');
+    };
+
+    // Filter and sort projects based on search term and active filter
+    const filteredProjects = projects
+        .filter(proj => proj.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => {
+            if (filter === 'name') {
+                return a.name.localeCompare(b.name);
+            }
+            // 'recent' - keep original order (most recent first)
+            // 'pinned' - pinned projects first (for now, same as recent since we don't have pinned data)
+            return 0;
+        });
+
+    // Handle file upload for .3psLCCA project files
+    const handleFileUpload = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const projectData = JSON.parse(e.target.result);
+                const importedProject = {
+                    id: projectData.project?.id || Date.now(),
+                    name: projectData.project?.name || file.name.replace('.3psLCCA', ''),
+                    date: 'just now'
+                };
+                setProjects(prev => [...prev, importedProject]);
+                onProjectOpen(importedProject.id, importedProject.name);
+            } catch (err) {
+                alert('Invalid project file format');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // Reset input
+    };
+
+    const triggerFileUpload = () => {
+        fileInputRef.current?.click();
     };
 
     const getGreetingTime = () => {
@@ -119,7 +162,7 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
                     style={{ cursor: 'pointer', backgroundColor: activeTab === 'open' ? theme.activeIconBg : 'transparent', color: activeTab === 'open' ? theme.activeIconColor : theme.textSecondary, transition: 'all 0.2s' }}
                     onClick={() => {
                         setActiveTab('open');
-                        onProjectOpen();
+                        triggerFileUpload();
                     }}
                 >
                     <BsFolder2Open size={22} className="mb-1" />
@@ -168,6 +211,8 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
                             <input
                                 type="text"
                                 placeholder="Search projects..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 className="form-control form-control-sm me-2 shadow-sm"
                                 style={{
                                     backgroundColor: theme.inputBg,
@@ -178,15 +223,54 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
                                     padding: '0.4rem 0.8rem'
                                 }}
                             />
-                            <button className="btn btn-sm px-4 shadow-sm" style={{ backgroundColor: theme.inputBg, color: theme.activeIconColor, border: `1px solid ${theme.activeIconColor}`, borderRadius: '6px', fontWeight: '600', padding: '0.4rem' }}>Recent</button>
-                            <button className="btn btn-sm px-4 shadow-sm" style={{ backgroundColor: theme.filterBtnUnselectedBg, color: theme.textSecondary, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '0.4rem' }}>Name</button>
-                            <button className="btn btn-sm px-4 shadow-sm" style={{ backgroundColor: theme.filterBtnUnselectedBg, color: theme.textSecondary, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '0.4rem' }}>Pinned</button>
+                            <button 
+                                className="btn btn-sm px-4 shadow-sm" 
+                                onClick={() => setFilter('recent')}
+                                style={{ 
+                                    backgroundColor: filter === 'recent' ? theme.inputBg : theme.filterBtnUnselectedBg, 
+                                    color: filter === 'recent' ? theme.activeIconColor : theme.textSecondary, 
+                                    border: `1px solid ${filter === 'recent' ? theme.activeIconColor : theme.border}`, 
+                                    borderRadius: '6px', 
+                                    fontWeight: filter === 'recent' ? '600' : 'normal',
+                                    padding: '0.4rem' 
+                                }}
+                            >
+                                Recent
+                            </button>
+                            <button 
+                                className="btn btn-sm px-4 shadow-sm" 
+                                onClick={() => setFilter('name')}
+                                style={{ 
+                                    backgroundColor: filter === 'name' ? theme.inputBg : theme.filterBtnUnselectedBg, 
+                                    color: filter === 'name' ? theme.activeIconColor : theme.textSecondary, 
+                                    border: `1px solid ${filter === 'name' ? theme.activeIconColor : theme.border}`, 
+                                    borderRadius: '6px', 
+                                    fontWeight: filter === 'name' ? '600' : 'normal',
+                                    padding: '0.4rem' 
+                                }}
+                            >
+                                All
+                            </button>
+                            <button 
+                                className="btn btn-sm px-4 shadow-sm" 
+                                onClick={() => setFilter('pinned')}
+                                style={{ 
+                                    backgroundColor: filter === 'pinned' ? theme.inputBg : theme.filterBtnUnselectedBg, 
+                                    color: filter === 'pinned' ? theme.activeIconColor : theme.textSecondary, 
+                                    border: `1px solid ${filter === 'pinned' ? theme.activeIconColor : theme.border}`, 
+                                    borderRadius: '6px', 
+                                    fontWeight: filter === 'pinned' ? '600' : 'normal',
+                                    padding: '0.4rem' 
+                                }}
+                            >
+                                Starred
+                            </button>
                         </div>
                     </div>
 
                     {/* Projects List */}
                     <div className="row g-3">
-                        {projects.map((proj) => (
+                        {filteredProjects.map((proj) => (
                             <div key={proj.id} className="col-12 col-md-6 col-lg-6">
                                 <div className="p-3 d-flex justify-content-between align-items-start shadow-sm" style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', minHeight: '90px' }} onClick={() => onProjectOpen(proj.id, proj.name)}>
                                     <div className="d-flex flex-column justify-content-between h-100">
@@ -200,6 +284,15 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
                             </div>
                         ))}
                     </div>
+
+                    {/* Hidden file input for .3psLCCA project upload */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept=".3psLCCA"
+                        style={{ display: 'none' }}
+                    />
 
                 </main>
 
