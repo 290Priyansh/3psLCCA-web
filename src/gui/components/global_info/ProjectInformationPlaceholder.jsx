@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { data as countriesData } from '../utils/countriesdata';
 import { materialCatalog } from '../utils/materialCatalog';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
+import { backfillGeneralInfo } from '../../../utils/projectCreation';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -188,20 +189,22 @@ function SelectField({ id, label, hint, required, options, value, onChange, hasE
 const ProjectInformationPlaceholder = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [form, setForm] = useState(() => {
-        const saved = projectData.general_info;
+        const filled = backfillGeneralInfo(projectData);
+        const saved = filled.general_info;
         return (saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE;
     });
 
     // Sync local state if context data changes (e.g. from global storage)
     useEffect(() => {
-        const saved = projectData.general_info;
+        const filled = backfillGeneralInfo(projectData);
+        const saved = filled.general_info;
         if (saved) {
             setForm(prev => {
                 const isDifferent = Object.keys(saved).some(key => saved[key] !== prev[key]);
-                return isDifferent ? { ...prev, ...saved } : prev;
+                return isDifferent ? { ...INITIAL_STATE, ...saved } : prev;
             });
         }
-    }, [projectData.general_info]);
+    }, [projectData.general_info, projectData.country, projectData.currency, projectData.unitSystem, projectData.name]);
     
     const [errors, setErrors] = useState(new Set());
     const [validationMsg, setValidationMsg] = useState('');
