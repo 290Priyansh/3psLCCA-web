@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Tabs, Tab } from 'react-bootstrap';
 import Select from 'react-select';
 import { data as countriesData } from './utils/countriesdata';
+import ProfileAvatar from './ProfileAvatar';
+import { getProfiles, saveProfile, deleteProfile, getActiveProfile } from '../utils/profileStorage';
 
 const countryOptions = countriesData.map(c => ({ value: c.COUNTRY, label: c.COUNTRY }));
 
@@ -47,24 +49,132 @@ const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, 
     const [appearanceMode, setAppearanceMode] = useState(userSettings?.appearanceMode || 'Auto(follow os)');
     const [lightTheme, setLightTheme] = useState(userSettings?.lightTheme || 'standard light');
     const [darkTheme, setDarkTheme] = useState(userSettings?.darkTheme || 'standard dark');
+    
+    // Profile state
+    const [profiles, setProfiles] = useState({});
+    const [selectedProfile, setSelectedProfile] = useState('+ New Profile');
+    const [logoData, setLogoData] = useState(null);
     const [profileCountry, setProfileCountry] = useState(null);
     const [agencyName, setAgencyName] = useState('');
     const [contactName, setContactName] = useState('');
     const [agencyAddress, setAgencyAddress] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
+    const [activeTab, setActiveTab] = useState('general');
 
+    // Load profiles when modal opens
     useEffect(() => {
         if (show) {
             setDisplayName(initialUserName || '');
-            // Sync from parent each time modal opens so saved settings are preserved
             setAppearanceMode(userSettings?.appearanceMode || 'Auto(follow os)');
             setLightTheme(userSettings?.lightTheme || 'standard light');
             setDarkTheme(userSettings?.darkTheme || 'standard dark');
+            
+            // Load profiles
+            const loadedProfiles = getProfiles();
+            setProfiles(loadedProfiles);
+            
+            // Try to select active profile
+            const active = getActiveProfile();
+            if (active?.profile_name && loadedProfiles[active.profile_name]) {
+                setSelectedProfile(active.profile_name);
+                loadProfileData(active.profile_name, loadedProfiles[active.profile_name]);
+            } else {
+                setSelectedProfile('+ New Profile');
+                clearProfileForm();
+            }
         }
     }, [show, initialUserName, userSettings]);
 
+    const loadProfileData = (name, data) => {
+        setAgencyName(data.agency_name || '');
+        setContactName(data.contact_person || '');
+        setAgencyAddress(data.agency_address || '');
+        setEmail(data.agency_email || '');
+        setPhone(data.agency_phone || '');
+        setLogoData(data.agency_logo || null);
+        if (data.agency_country) {
+            setProfileCountry({ value: data.agency_country, label: data.agency_country });
+        } else {
+            setProfileCountry(null);
+        }
+    };
+
+    const clearProfileForm = () => {
+        setAgencyName('');
+        setContactName('');
+        setAgencyAddress('');
+        setEmail('');
+        setPhone('');
+        setLogoData(null);
+        setProfileCountry(null);
+    };
+
+    const getProfileData = () => ({
+        agency_name: agencyName,
+        contact_person: contactName,
+        agency_address: agencyAddress,
+        agency_email: email,
+        agency_phone: phone,
+        agency_logo: logoData,
+        agency_country: profileCountry?.value || ''
+    });
+
+    const handleProfileSelect = (e) => {
+        const name = e.target.value;
+        setSelectedProfile(name);
+        
+        if (name === '+ New Profile') {
+            clearProfileForm();
+        } else if (profiles[name]) {
+            loadProfileData(name, profiles[name]);
+        }
+    };
+
+    const handleDeleteProfile = () => {
+        if (selectedProfile === '+ New Profile') return;
+        
+        if (window.confirm(`Delete '${selectedProfile}'?\nThis cannot be undone.`)) {
+            deleteProfile(selectedProfile);
+            const updated = getProfiles();
+            setProfiles(updated);
+            setSelectedProfile('+ New Profile');
+            clearProfileForm();
+        }
+    };
+
     const handleSave = () => {
+        // Only save profile if on Profiles tab
+        if (activeTab === 'profiles') {
+            const data = getProfileData();
+            
+            if (selectedProfile === '+ New Profile') {
+                // Prompt for new profile name
+                const name = window.prompt('Name for this profile:');
+                if (!name) return; // User cancelled
+                
+                const trimmed = name.trim();
+                if (!trimmed) {
+                    alert('Profile name cannot be empty.');
+                    return;
+                }
+                
+                if (profiles[trimmed]) {
+                    alert(`Profile '${trimmed}' already exists.`);
+                    return;
+                }
+                
+                saveProfile(trimmed, data);
+                setProfiles(getProfiles());
+                setSelectedProfile(trimmed);
+            } else {
+                // Update existing
+                saveProfile(selectedProfile, data);
+                setProfiles(getProfiles());
+            }
+        }
+        
+        // Save general settings
         if (onSaveSettings) {
             onSaveSettings({
                 displayName,
@@ -75,6 +185,7 @@ const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, 
         }
         handleClose();
     };
+
 
     return (
         <Modal
@@ -182,7 +293,7 @@ const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, 
                 <button type="button" className="btn-close btn-close-white" onClick={handleClose} aria-label="Close"></button>
             </Modal.Header>
 
-            <Tabs defaultActiveKey="general" className="mb-3">
+            <Tabs defaultActiveKey="general" className="mb-3" onSelect={(k) => setActiveTab(k)}>
                 <Tab eventKey="general" title="General">
                     <Modal.Body className="px-4 py-2" style={{ minHeight: '350px' }}>
                         <div style={{ border: `1px solid ${theme.border}`, padding: '20px', borderRadius: '4px', backgroundColor: theme.bgCard }}>
@@ -244,15 +355,39 @@ const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, 
                                 Profiles store your agency details - name, logo, and contact information. The active profile is used in generated reports and exports.
                             </p>
 
+                            {/* Avatar */}
                             <div className="d-flex justify-content-center mb-4">
-                                <div className="d-flex align-items-center justify-content-center" style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#d1d5db', cursor: 'pointer', color: '#374151', fontSize: '30px' }}>
-                                    +
-                                </div>
+                                <ProfileAvatar
+                                    size={80}
+                                    profileName={selectedProfile !== '+ New Profile' ? selectedProfile : ''}
+                                    logoData={logoData}
+                                    onLogoChange={setLogoData}
+                                    theme={theme}
+                                />
                             </div>
 
-                            <Form.Select className="mb-4" defaultValue="+ New Profile">
-                                <option>+ New Profile</option>
-                            </Form.Select>
+                            {/* Profile selector + Delete button */}
+                            <div className="d-flex gap-2 mb-4">
+                                <Form.Select 
+                                    value={selectedProfile} 
+                                    onChange={handleProfileSelect}
+                                    style={{ flex: 1 }}
+                                >
+                                    {Object.keys(profiles).sort().map(name => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
+                                    <option value="+ New Profile">+ New Profile</option>
+                                </Form.Select>
+                                {selectedProfile !== '+ New Profile' && (
+                                    <Button 
+                                        variant="outline-danger" 
+                                        size="sm"
+                                        onClick={handleDeleteProfile}
+                                    >
+                                        Delete
+                                    </Button>
+                                )}
+                            </div>
 
                             <Form.Group className="mb-4">
                                 <Form.Label>Agency Name</Form.Label>
@@ -260,7 +395,7 @@ const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, 
                             </Form.Group>
 
                             <Form.Group className="mb-4">
-                                <Form.Label>Contact Person Name</Form.Label>
+                                <Form.Label>Assessor's Name</Form.Label>
                                 <Form.Control type="text" value={contactName} onChange={e => setContactName(e.target.value)} />
                             </Form.Group>
 
