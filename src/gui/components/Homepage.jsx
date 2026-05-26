@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BsHouseDoorFill, BsFileEarmarkPlus, BsFolder2Open, BsGearFill, BsThreeDotsVertical } from 'react-icons/bs';
+import React, { useState, useEffect, useRef } from 'react';
+import { BsHouseDoorFill, BsFileEarmarkPlus, BsFolder2Open, BsGearFill, BsThreeDotsVertical, BsStarFill, BsStar } from 'react-icons/bs';
 import { AiOutlineRedo } from 'react-icons/ai';
 import NewProject from './NewProject';
 import SettingsModal from './SettingsModal';
@@ -24,6 +24,74 @@ const AppLogo = () => (
     <img src={Logo3psLCCA} alt="3psLCCA Logo" width="45" height="45" style={{ objectFit: 'contain' }} />
 );
 
+// Project Card with hover star like desktop
+const ProjectCard = ({ proj, theme, onOpen, onContextMenu, onPinToggle }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    const handleStarClick = (e) => {
+        e.stopPropagation();
+        onPinToggle();
+    };
+
+    const showStar = proj.pinned || isHovered;
+    const starFilled = proj.pinned;
+
+    return (
+        <div 
+            className="p-3 d-flex justify-content-between align-items-start shadow-sm position-relative" 
+            style={{ 
+                backgroundColor: theme.bgCard, 
+                border: `1px solid ${theme.border}`, 
+                borderRadius: '8px', 
+                cursor: 'pointer', 
+                transition: 'all 0.2s', 
+                minHeight: '90px',
+                borderLeft: proj.pinned ? `4px solid ${theme.activeIconColor}` : undefined
+            }} 
+            onClick={onOpen}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <div className="d-flex flex-column justify-content-between h-100" style={{ flex: 1 }}>
+                <div className="d-flex align-items-center gap-2">
+                    <h6 className="mb-0" style={{ color: theme.textPrimary, fontSize: '0.95rem', fontWeight: '500' }}>{proj.name}</h6>
+                </div>
+                <small style={{ color: theme.textSecondary, fontSize: '0.75rem' }}>{proj.date}</small>
+            </div>
+            
+            {/* Star icon - shows on hover or when pinned */}
+            {showStar && (
+                <button
+                    onClick={handleStarClick}
+                    className="btn btn-link p-0 border-0"
+                    style={{ 
+                        marginTop: 'auto', 
+                        marginBottom: 'auto',
+                        marginRight: '8px',
+                        opacity: starFilled ? 1 : 0.6
+                    }}
+                    title={starFilled ? 'Unpin' : 'Pin to top'}
+                >
+                    {starFilled ? (
+                        <BsStarFill size={16} color={theme.activeIconColor} />
+                    ) : (
+                        <BsStar size={16} color={theme.textSecondary} />
+                    )}
+                </button>
+            )}
+            
+            {/* Three dots menu */}
+            <button 
+                className="btn btn-link text-muted p-0 border-0" 
+                style={{ marginTop: 'auto', marginBottom: 'auto' }}
+                onClick={onContextMenu}
+            >
+                <BsThreeDotsVertical size={16} color={theme.textSecondary} />
+            </button>
+        </div>
+    );
+};
+
 
 const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings, setUserSettings }) => {
     const [showModal, setShowModal] = useState(false);
@@ -31,11 +99,13 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
     const [activeTab, setActiveTab] = useState('home');
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('recent'); // 'recent', 'name', 'pinned'
-    const fileInputRef = React.useRef(null);
+    const fileInputRef = useRef(null);
     const [projects, setProjects] = useState(() => {
         const saved = localStorage.getItem('recentProjects');
         return saved ? JSON.parse(saved) : [];
     });
+    // Context menu state
+    const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, project: null });
 
     useEffect(() => {
         localStorage.setItem('recentProjects', JSON.stringify(projects));
@@ -61,13 +131,23 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
 
     // Filter and sort projects based on search term and active filter
     const filteredProjects = projects
-        .filter(proj => proj.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(proj => {
+            const matchesSearch = proj.name.toLowerCase().includes(searchTerm.toLowerCase());
+            if (filter === 'pinned') {
+                return matchesSearch && proj.pinned;
+            }
+            return matchesSearch;
+        })
         .sort((a, b) => {
             if (filter === 'name') {
                 return a.name.localeCompare(b.name);
             }
             // 'recent' - keep original order (most recent first)
-            // 'pinned' - pinned projects first (for now, same as recent since we don't have pinned data)
+            // 'pinned' - show pinned first then by recent
+            if (filter === 'pinned') {
+                if (a.pinned && !b.pinned) return -1;
+                if (!a.pinned && b.pinned) return 1;
+            }
             return 0;
         });
 
@@ -97,6 +177,79 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
 
     const triggerFileUpload = () => {
         fileInputRef.current?.click();
+    };
+
+    // Context menu handlers
+    const handleContextMenu = (e, proj) => {
+        e.stopPropagation();
+        e.preventDefault();
+        
+        // Menu dimensions (must match CSS below)
+        const menuWidth = 160;
+        const menuHeight = 280; // Approximate max height
+        
+        let x = e.clientX;
+        let y = e.clientY;
+        
+        // Keep within viewport bounds
+        if (x + menuWidth > window.innerWidth) {
+            x = window.innerWidth - menuWidth - 8;
+        }
+        if (y + menuHeight > window.innerHeight) {
+            y = window.innerHeight - menuHeight - 8;
+        }
+        
+        setContextMenu({
+            show: true,
+            x,
+            y,
+            project: proj
+        });
+    };
+
+    const closeContextMenu = () => {
+        setContextMenu({ show: false, x: 0, y: 0, project: null });
+    };
+
+    const handlePinToggle = (proj) => {
+        setProjects(prev => prev.map(p => 
+            p.id === proj.id ? { ...p, pinned: !p.pinned } : p
+        ));
+        closeContextMenu();
+    };
+
+    const handleCopyName = (name) => {
+        navigator.clipboard.writeText(name);
+        closeContextMenu();
+    };
+
+    const handleDeleteProject = (proj) => {
+        if (window.confirm(`Delete '${proj.name}'?\nThis cannot be undone.`)) {
+            setProjects(prev => prev.filter(p => p.id !== proj.id));
+        }
+        closeContextMenu();
+    };
+
+    const handleRenameProject = (proj) => {
+        const newName = window.prompt('New name:', proj.name);
+        if (newName && newName.trim()) {
+            setProjects(prev => prev.map(p => 
+                p.id === proj.id ? { ...p, name: newName.trim() } : p
+            ));
+        }
+        closeContextMenu();
+    };
+
+    const handleDuplicateProject = (proj) => {
+        const newProj = {
+            ...proj,
+            id: Date.now(),
+            name: `${proj.name} (Copy)`,
+            date: 'just now',
+            pinned: false
+        };
+        setProjects(prev => [...prev, newProj]);
+        closeContextMenu();
     };
 
     const getGreetingTime = () => {
@@ -272,18 +425,108 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
                     <div className="row g-3">
                         {filteredProjects.map((proj) => (
                             <div key={proj.id} className="col-12 col-md-6 col-lg-6">
-                                <div className="p-3 d-flex justify-content-between align-items-start shadow-sm" style={{ backgroundColor: theme.bgCard, border: `1px solid ${theme.border}`, borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', minHeight: '90px' }} onClick={() => onProjectOpen(proj.id, proj.name)}>
-                                    <div className="d-flex flex-column justify-content-between h-100">
-                                        <h6 className="mb-2" style={{ color: theme.textPrimary, fontSize: '0.95rem', fontWeight: '500' }}>{proj.name}</h6>
-                                        <small style={{ color: theme.textSecondary, fontSize: '0.75rem' }}>{proj.date}</small>
-                                    </div>
-                                    <button className="btn btn-link text-muted p-0 border-0" style={{ marginTop: 'auto', marginBottom: 'auto' }}>
-                                        <BsThreeDotsVertical size={16} color={theme.textSecondary} />
-                                    </button>
-                                </div>
+                                <ProjectCard 
+                                    proj={proj} 
+                                    theme={theme} 
+                                    onOpen={() => onProjectOpen(proj.id, proj.name)}
+                                    onContextMenu={(e) => handleContextMenu(e, proj)}
+                                    onPinToggle={() => handlePinToggle(proj)}
+                                />
                             </div>
                         ))}
                     </div>
+
+                    {/* Context Menu */}
+                    {contextMenu.show && contextMenu.project && (
+                        <>
+                            <div 
+                                className="position-fixed" 
+                                style={{ 
+                                    top: 0, 
+                                    left: 0, 
+                                    right: 0, 
+                                    bottom: 0, 
+                                    zIndex: 1049 
+                                }}
+                                onClick={closeContextMenu}
+                            />
+                            <div 
+                                className="position-fixed shadow-lg"
+                                style={{
+                                    top: contextMenu.y,
+                                    left: contextMenu.x,
+                                    backgroundColor: theme.bgCard,
+                                    border: `1px solid ${theme.border}`,
+                                    borderRadius: '6px',
+                                    zIndex: 1050,
+                                    width: '160px',
+                                    fontSize: '13px'
+                                }}
+                            >
+                                <div>
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: theme.textPrimary, cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        onClick={() => { onProjectOpen(contextMenu.project.id, contextMenu.project.name); closeContextMenu(); }}
+                                    >
+                                        Open
+                                    </button>
+                                    <div style={{ borderTop: `1px solid ${theme.border}`, margin: '2px 0' }} />
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: theme.textPrimary, cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        onClick={() => handlePinToggle(contextMenu.project)}
+                                    >
+                                        {contextMenu.project.pinned ? 'Unpin' : '📌 Pin to top'}
+                                    </button>
+                                    <div style={{ borderTop: `1px solid ${theme.border}`, margin: '2px 0' }} />
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: theme.textPrimary, cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        onClick={() => handleCopyName(contextMenu.project.name)}
+                                    >
+                                        Copy Name
+                                    </button>
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: theme.textSecondary, cursor: 'not-allowed', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        disabled
+                                    >
+                                        Share / Export...
+                                    </button>
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: theme.textPrimary, cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        onClick={() => handleRenameProject(contextMenu.project)}
+                                    >
+                                        Rename
+                                    </button>
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: theme.textPrimary, cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        onClick={() => handleDuplicateProject(contextMenu.project)}
+                                    >
+                                        Duplicate
+                                    </button>
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: theme.textSecondary, cursor: 'not-allowed', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        disabled
+                                    >
+                                        Info
+                                    </button>
+                                    <div style={{ borderTop: `1px solid ${theme.border}`, margin: '2px 0' }} />
+                                    <button 
+                                        className="dropdown-item d-flex align-items-center px-3 py-1"
+                                        style={{ background: 'transparent', border: 'none', color: '#dc3545', cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: '13px' }}
+                                        onClick={() => handleDeleteProject(contextMenu.project)}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     {/* Hidden file input for .3psLCCA project upload */}
                     <input
