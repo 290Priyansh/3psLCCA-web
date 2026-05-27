@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { backfillGeneralInfo } from '../utils/projectCreation';
 
 const ProjectDataContext = createContext();
 
@@ -11,12 +12,12 @@ export const ProjectDataProvider = ({ children, projectId = 'default', initialDa
         const saved = localStorage.getItem(storageKey);
         if (saved) {
             try {
-                return JSON.parse(saved);
+                return backfillGeneralInfo(JSON.parse(saved));
             } catch (e) {
                 console.error("Failed to parse project data from localStorage", e);
             }
         }
-        return initialData || {
+        return backfillGeneralInfo(initialData) || {
             name: 'Bridge_Assessment_01',
             general_info: {},
             bridge_data: {},
@@ -42,10 +43,13 @@ export const ProjectDataProvider = ({ children, projectId = 'default', initialDa
     }, [projectData, storageKey, onStateChange]);
 
     const updateProjectData = useCallback((chunkName, data) => {
-        setProjectData(prev => ({
-            ...prev,
-            [chunkName]: data
-        }));
+        setProjectData(prev => {
+            const next = { ...prev, [chunkName]: data };
+            if (chunkName === 'general_info' && data?.project_name && data.project_name !== prev.name) {
+                next.name = data.project_name;
+            }
+            return next;
+        });
     }, []);
 
     const clearProjectData = useCallback(() => {

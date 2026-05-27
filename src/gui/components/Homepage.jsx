@@ -93,7 +93,7 @@ const ProjectCard = ({ proj, theme, onOpen, onContextMenu, onPinToggle }) => {
 };
 
 
-const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings, setUserSettings }) => {
+const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkMode, userSettings, setUserSettings }) => {
     const [showModal, setShowModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [activeTab, setActiveTab] = useState('home');
@@ -120,8 +120,9 @@ const Homepage = ({ onProjectOpen, userName = 'ritik!', isDarkMode, userSettings
     };
 
     const handleProjectCreate = (newProjectData) => {
+        const result = onProjectCreate ? onProjectCreate(newProjectData) : null;
         const newProject = {
-            id: Date.now(),
+            id: result?.id ?? Date.now(),
             name: newProjectData.name,
             date: 'just now'
         };

@@ -51,17 +51,11 @@ const TreeNode = ({ label, childrenData, depth, activeNode, setActiveNode }) => 
     const handleToggle = (e) => {
         e.stopPropagation();
 
-        let targetNode = label;
         if (hasChildren) {
-            setIsExpanded(true);
-            if (Array.isArray(childrenData) && childrenData.length > 0) {
-                targetNode = childrenData[0];
-            } else if (childrenData && typeof childrenData === 'object' && Object.keys(childrenData).length > 0) {
-                targetNode = Object.keys(childrenData)[0];
-            }
+            setIsExpanded(prev => !prev);
         }
 
-        setActiveNode(targetNode);
+        setActiveNode(label);
     };
 
     const nodeColor = isActive ? 'var(--app-text-primary)' : 'var(--app-text-secondary)';
@@ -103,8 +97,8 @@ const TreeNode = ({ label, childrenData, depth, activeNode, setActiveNode }) => 
                 <span className="text-nowrap overflow-hidden text-truncate">{label}</span>
             </div>
 
-            {hasChildren && isExpanded && (
-                <div className="w-100">
+            {hasChildren && (
+                <div className="w-100" style={{ display: isExpanded ? 'block' : 'none' }}>
                     {Array.isArray(childrenData)
                         ? childrenData.map(child => (
                             <TreeNode

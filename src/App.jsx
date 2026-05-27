@@ -15,6 +15,7 @@ import Recycling from './gui/components/recycling/Recycling'
 import Demolition from './gui/components/demolition/Demolition'
 import Outputs from './gui/components/outputs/Outputs'
 import { ProjectDataProvider } from './contexts/ProjectDataContext'
+import { buildProjectFromCreation, backfillGeneralInfo } from './utils/projectCreation'
 import './App.css'
 
 function ProtectedRoute({ isLoggedIn, children }) {
@@ -56,17 +57,7 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
 
   const handleNewProject = (data) => {
     const newProjectId = 'new_project_' + Date.now();
-    setProjectData({
-      ...data,
-      bridge_data: {},
-      financial_data: {},
-      traffic_data: {},
-      construction_work_data: { "Super Structure": { total: 0 }, "grand_total": 0 },
-      carbon_emission_data: {},
-      maintenance_data: {},
-      demolition_data: {},
-      recycling_data: {}
-    })
+    setProjectData(buildProjectFromCreation(data))
     setCheckpoints([])
     setLogs([])
     setIsLocked(false)
@@ -76,7 +67,8 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
 
   const handleOpenProject = (data) => {
     const openProjectId = data?.id || 'opened_project';
-    setProjectData(data.project || data)
+    const raw = data.project || data;
+    setProjectData(backfillGeneralInfo(raw))
     if (data.checkpoints) {
       setCheckpoints(data.checkpoints)
     }
@@ -96,7 +88,14 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
 
   const handleRenameProject = (newName) => {
     if (projectData) {
-      setProjectData(prev => ({ ...prev, name: newName }))
+      setProjectData(prev => ({
+        ...prev,
+        name: newName,
+        general_info: {
+          ...(prev.general_info || {}),
+          project_name: newName,
+        },
+      }))
       addLog(`Project renamed to '${newName}'.`)
     }
   }
@@ -130,7 +129,7 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
   };
 
   const CONTENT_MAP = {
-    'General Information': <ProjectInformationPlaceholder key="general" data={projectData.bridge_data} onUpdate={(d) => updateProjectData('bridge_data', d)} />,
+    'General Information': <ProjectInformationPlaceholder key="general" />,
     'Bridge Data': <BridgeData key="bridge" data={projectData.bridge_data} onUpdate={(d) => updateProjectData('bridge_data', d)} />,
     'Financial Data': <FinancialData key="financial" data={projectData.financial_data} onUpdate={(d) => updateProjectData('financial_data', d)} />,
     'Traffic Data': <TrafficData key="traffic" data={projectData.traffic_data} onUpdate={(d) => updateProjectData('traffic_data', d)} />,
@@ -405,10 +404,32 @@ function App() {
     handleLogin(false, namePart);
   };
 
+  const handleProjectCreate = (creationData) => {
+    const newProjectId = 'new_project_' + Date.now();
+    setProjectData(buildProjectFromCreation(creationData));
+    setCheckpoints([]);
+    setLogs([]);
+    setIsLocked(false);
+    addLog(`New project '${creationData?.name || 'New Project'}' created.`);
+    navigate(`/project/${newProjectId}/General Information`);
+    return { id: newProjectId, name: creationData.name };
+  };
+
   const handleProjectOpen = (projectId = 'default_project', projectName = 'Default Project') => {
-    navigate(`/project/${projectId}/General Information`)
-    addLog(`Project '${projectName}' opened successfully.`)
-  }
+    const storageKey = `project_data_${projectId}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        setProjectData(backfillGeneralInfo(JSON.parse(saved)));
+      } catch (e) {
+        console.error('Failed to load project from localStorage', e);
+      }
+    } else if (projectName) {
+      setProjectData(prev => backfillGeneralInfo({ ...prev, name: projectName }));
+    }
+    navigate(`/project/${projectId}/General Information`);
+    addLog(`Project '${projectName}' opened successfully.`);
+  };
 
   return (
     <Routes>
@@ -420,6 +441,7 @@ function App() {
         <ProtectedRoute isLoggedIn={isLoggedIn}>
           <HomePage
             onProjectOpen={handleProjectOpen}
+            onProjectCreate={handleProjectCreate}
             userName={userName}
             isDarkMode={isDarkMode}
             userSettings={userSettings}
