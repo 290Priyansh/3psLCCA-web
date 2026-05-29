@@ -12,22 +12,22 @@ const COUNTRIES = countriesData.map((c) => c.COUNTRY);
 
 const INITIAL_STATE = {
     // Project Information
-    project_name:        '',
-    project_code:        '',
+    project_name: '',
+    project_code: '',
     project_description: '',
-    remarks:             '',
+    remarks: '',
     // Evaluating Agency
-    agency_name:         '',
-    contact_person:      '',
-    agency_address:      '',
-    agency_country:      '',
-    agency_email:        '',
-    agency_phone:        '',
+    agency_name: '',
+    contact_person: '',
+    agency_address: '',
+    agency_country: '',
+    agency_email: '',
+    agency_phone: '',
     // Project Settings (read-only / locked — shown but not editable)
-    project_country:     '',
-    project_currency:    '',
-    unit_system:         '',
-    sor_database:        '',
+    project_country: '',
+    project_currency: '',
+    unit_system: '',
+    sor_database: '',
 };
 
 const REQUIRED_KEYS = new Set(['project_name']);
@@ -188,6 +188,7 @@ function SelectField({ id, label, hint, required, options, value, onChange, hasE
 
 const ProjectInformationPlaceholder = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
+    const containerRef = useRef(null);
     const [form, setForm] = useState(() => {
         const filled = backfillGeneralInfo(projectData);
         const saved = filled.general_info;
@@ -199,13 +200,16 @@ const ProjectInformationPlaceholder = ({ controller }) => {
         const filled = backfillGeneralInfo(projectData);
         const saved = filled.general_info;
         if (saved) {
+            if (containerRef.current && containerRef.current.contains(document.activeElement)) {
+                return;
+            }
             setForm(prev => {
                 const isDifferent = Object.keys(saved).some(key => saved[key] !== prev[key]);
                 return isDifferent ? { ...INITIAL_STATE, ...saved } : prev;
             });
         }
     }, [projectData.general_info, projectData.country, projectData.currency, projectData.unitSystem, projectData.name]);
-    
+
     const [errors, setErrors] = useState(new Set());
     const [validationMsg, setValidationMsg] = useState('');
 
