@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Navbar, Nav, NavDropdown, Button, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { FaHome, FaLock, FaLockOpen, FaInfoCircle, FaCheckCircle, FaUndo, FaSave, FaCalculator, FaHistory, FaFolderOpen, FaPlus, FaSignOutAlt, FaCog } from 'react-icons/fa';
-import SaveCheckpointModal from './SaveCheckpointModal';
-import CheckpointManagerModal from './CheckpointManagerModal';
 import NewProjectModal from './NewProjectModal';
 import OpenProjectModal from './OpenProjectModal';
 import RenameProjectModal from './RenameProjectModal';
@@ -111,9 +109,7 @@ const CustomNavBtn = ({ variant, outlineColor, outlineHoverBg, children, icon: I
     );
 };
 
-const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDeleteCheckpoint, onNewProject, onOpenProject, checkpoints, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId }) => {
-    const [showSaveModal, setShowSaveModal] = useState(false);
-    const [showManagerModal, setShowManagerModal] = useState(false);
+const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProject, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId }) => {
     const [showNewProjectModal, setShowNewProjectModal] = useState(false);
     const [showOpenProjectModal, setShowOpenProjectModal] = useState(false);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -121,11 +117,6 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDelete
     const [showContactModal, setShowContactModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showInfoModal, setShowInfoModal] = useState(false);
-
-    const handleRestoreCheckpoint = (cp) => {
-        alert(`Restoring checkpoint: "${cp.label}"\n(This would typically replace current project data with the snapshot)`);
-        addLog(`Restore initiated for checkpoint: '${cp.label}'.`);
-    };
 
     return (
         <Navbar expand="lg" className="px-3 border-bottom custom-project-nav" style={{ 
@@ -192,29 +183,7 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDelete
                     <span>All changes saved</span>
                 </div>
                 
-                <CustomNavBtn 
-                    variant="outline-secondary" 
-                    outlineColor="var(--app-border-mid)" 
-                    outlineHoverBg="var(--app-bg-alt)"
-                    icon={FaSave}
-                    onClick={() => setShowSaveModal(true)}
-                >
-                    Save Checkpoint
-                </CustomNavBtn>
-                
-                <CustomNavBtn 
-                    variant="outline-secondary" 
-                    outlineColor="var(--app-border-mid)" 
-                    outlineHoverBg="var(--app-bg-alt)"
-                    icon={FaHistory}
-                    onClick={() => {
-                        setShowManagerModal(true);
-                        addLog("Opened Checkpoint Manager.");
-                    }}
-                >
-                    Checkpoints
-                </CustomNavBtn>
-                
+
                 <Button 
                     variant="outline-secondary" 
                     size="sm" 
@@ -261,23 +230,6 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onSaveCheckpoint, onDelete
             </Nav>
             </Navbar.Collapse>
 
-            <SaveCheckpointModal 
-                show={showSaveModal} 
-                onHide={() => setShowSaveModal(false)} 
-                onSave={onSaveCheckpoint}
-            />
-
-            <CheckpointManagerModal 
-                show={showManagerModal}
-                onHide={() => setShowManagerModal(false)}
-                checkpoints={checkpoints || []}
-                onDelete={onDeleteCheckpoint}
-                onRestore={handleRestoreCheckpoint}
-                onAddNew={() => {
-                    setShowManagerModal(false);
-                    setShowSaveModal(true);
-                }}
-            />
 
             <NewProjectModal 
                 show={showNewProjectModal}

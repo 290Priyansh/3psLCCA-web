@@ -10,7 +10,6 @@ The platform is structured around a comprehensive lifecycle assessment workflow,
 
 ### 1. Project Initialization & Management
 *   **General Information & Bridge Data:** Track geometry, location-specific data (e.g., standard databases for India like Bihar/Mumbai), and project parameters.
-*   **Checkpoint Manager:** Capture project states locally and revert/compare different design scenarios seamlessly.
 *   **Export/Import Engine:** Export complete project workspaces as JSON bundles for backup or sharing.
 
 ### 2. Multi-Dimensional Input Modules

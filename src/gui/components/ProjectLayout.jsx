@@ -2,18 +2,15 @@ import React from 'react';
 import ProjectNavbar from './ProjectNavbar';
 import Sidebar from './Sidebar';
 
-const ProjectLayout = ({ children, activeNode, setActiveNode, onBackToHome, checkpoints, onSaveCheckpoint, onDeleteCheckpoint, onNewProject, onOpenProject, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId }) => {
+const ProjectLayout = ({ children, activeNode, setActiveNode, onBackToHome, onNewProject, onOpenProject, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId }) => {
     return (
         <div className="d-flex flex-column overflow-hidden" style={{ height: '100vh', width: '100vw' }}>
             <ProjectNavbar 
                 projectId={projectId}
                 onBackToHome={onBackToHome} 
                 setActiveNode={setActiveNode} 
-                onSaveCheckpoint={onSaveCheckpoint}
-                onDeleteCheckpoint={onDeleteCheckpoint}
                 onNewProject={onNewProject}
                 onOpenProject={onOpenProject}
-                checkpoints={checkpoints}
                 addLog={addLog}
                 isLocked={isLocked}
                 setIsLocked={setIsLocked}

@@ -25,10 +25,33 @@ function ProtectedRoute({ isLoggedIn, children }) {
   return children;
 }
 
-function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheckpoints, logs, setLogs, isLocked, setIsLocked, addLog }) {
+function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLocked, setIsLocked, addLog }) {
   const { projectId, nodeId } = useParams();
   const navigate = useNavigate();
   const activeNode = nodeId ? decodeURIComponent(nodeId) : 'General Information';
+
+  useEffect(() => {
+    if (projectId) {
+      const saved = localStorage.getItem(`project_data_${projectId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Only update if it's different to avoid loops if navigate is used
+          if (JSON.stringify(parsed) !== JSON.stringify(projectData)) {
+            setProjectData(backfillGeneralInfo(parsed));
+          }
+        } catch (e) {
+          console.error("Error parsing saved project data", e);
+        }
+      }
+    }
+  }, [projectId, setProjectData]);
+
+  useEffect(() => {
+    if (projectId && projectData) {
+      localStorage.setItem(`project_data_${projectId}`, JSON.stringify(projectData));
+    }
+  }, [projectData, projectId]);
 
   const updateProjectData = (section, data) => {
     setProjectData(prev => ({
@@ -44,21 +67,10 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
     }
   }
 
-  const handleSaveCheckpoint = (newCheckpoint) => {
-    setCheckpoints(prev => [...prev, newCheckpoint])
-    addLog(`Checkpoint '${newCheckpoint.label}' created.`)
-  }
-
-  const handleDeleteCheckpoint = (index) => {
-    const cp = checkpoints[index]
-    setCheckpoints(prev => prev.filter((_, i) => i !== index))
-    addLog(`Checkpoint '${cp?.label || 'Unknown'}' deleted.`)
-  }
-
   const handleNewProject = (data) => {
     const newProjectId = 'new_project_' + Date.now();
     setProjectData(buildProjectFromCreation(data))
-    setCheckpoints([])
+
     setLogs([])
     setIsLocked(false)
     addLog(`New project '${data?.name || 'New Project'}' created.`)
@@ -69,9 +81,7 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
     const openProjectId = data?.id || 'opened_project';
     const raw = data.project || data;
     setProjectData(backfillGeneralInfo(raw))
-    if (data.checkpoints) {
-      setCheckpoints(data.checkpoints)
-    }
+
     if (data.logs) {
       setLogs(data.logs)
     } else {
@@ -105,7 +115,7 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
 
     const exportData = {
       project: projectData,
-      checkpoints: checkpoints,
+
       logs: logs,
       exportedAt: new Date().toISOString()
     };
@@ -176,9 +186,6 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
           addLog("Project closed. Returning to home.");
           navigate('/');
         }}
-        checkpoints={checkpoints}
-        onSaveCheckpoint={handleSaveCheckpoint}
-        onDeleteCheckpoint={handleDeleteCheckpoint}
         onNewProject={handleNewProject}
         onOpenProject={handleOpenProject}
         addLog={addLog}
@@ -190,7 +197,6 @@ function ProjectViewWrapper({ projectData, setProjectData, checkpoints, setCheck
         onExportProject={handleExportProject}
       >
         {content ? React.cloneElement(content, {
-          checkpoints,
           logs,
           onClearLogs: handleClearLogs,
           isLocked: isLocked,
@@ -216,10 +222,7 @@ function App() {
     demolition_data: {},
     recycling_data: {}
   })
-  const [checkpoints, setCheckpoints] = useState(() => {
-    const saved = localStorage.getItem('checkpoints')
-    return saved ? JSON.parse(saved) : []
-  })
+
   const [logs, setLogs] = useState(() => {
     const saved = localStorage.getItem('logs')
     return saved ? JSON.parse(saved) : []
@@ -235,7 +238,7 @@ function App() {
 
   useEffect(() => { sessionStorage.setItem('isLoggedIn', isLoggedIn); }, [isLoggedIn]);
   useEffect(() => { sessionStorage.setItem('userName', userName); }, [userName]);
-  useEffect(() => { localStorage.setItem('checkpoints', JSON.stringify(checkpoints)); }, [checkpoints]);
+
   useEffect(() => { localStorage.setItem('logs', JSON.stringify(logs)); }, [logs]);
 
   const [userSettings, setUserSettings] = useState(() => {
@@ -407,7 +410,6 @@ function App() {
   const handleProjectCreate = (creationData) => {
     const newProjectId = 'new_project_' + Date.now();
     setProjectData(buildProjectFromCreation(creationData));
-    setCheckpoints([]);
     setLogs([]);
     setIsLocked(false);
     addLog(`New project '${creationData?.name || 'New Project'}' created.`);
@@ -455,8 +457,6 @@ function App() {
           <ProjectViewWrapper
             projectData={projectData}
             setProjectData={setProjectData}
-            checkpoints={checkpoints}
-            setCheckpoints={setCheckpoints}
             logs={logs}
             setLogs={setLogs}
             isLocked={isLocked}

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from 'react-bootstrap';
 
-const Logs = ({ checkpoints, logs = [], onClearLogs }) => {
-    const checkpointCount = checkpoints?.length || 0;
+const Logs = ({ logs = [], onClearLogs }) => {
 
     const handleClear = () => {
         if (onClearLogs) onClearLogs();
@@ -21,8 +20,6 @@ const Logs = ({ checkpoints, logs = [], onClearLogs }) => {
                 <div className="d-flex align-items-center" style={{ gap: '15px' }}>
                     <div className="d-flex" style={{ gap: '10px', fontSize: '13px', color: 'var(--app-text-secondary)' }}>
                         <span>Chunks: <span style={{ color: 'var(--app-text-primary)' }}>15</span></span>
-                        <span style={{ color: 'var(--app-border-mid)' }}>|</span>
-                        <span>Checkpoints: <span style={{ color: 'var(--app-text-primary)' }}>{checkpointCount}</span></span>
                         <span style={{ color: 'var(--app-border-mid)' }}>|</span>
                         <span>Pending: <span style={{ color: 'var(--app-text-primary)' }}>0</span></span>
                     </div>
