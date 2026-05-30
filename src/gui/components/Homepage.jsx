@@ -3,6 +3,7 @@ import { BsHouseDoorFill, BsFileEarmarkPlus, BsFolder2Open, BsGearFill, BsThreeD
 import { AiOutlineRedo } from 'react-icons/ai';
 import NewProject from './NewProject';
 import SettingsModal from './SettingsModal';
+import { projectStorageService } from '../../lib/projectStorageService';
 
 // Base Imports
 import Logo3psLCCA from '../../assets/logo-3psLCCA.svg';
@@ -93,23 +94,28 @@ const ProjectCard = ({ proj, theme, onOpen, onContextMenu, onPinToggle }) => {
 };
 
 
-const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkMode, userSettings, setUserSettings }) => {
+const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkMode, userSettings, setUserSettings, onLogout }) => {
     const [showModal, setShowModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [activeTab, setActiveTab] = useState('home');
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('recent'); // 'recent', 'name', 'pinned'
-    const fileInputRef = useRef(null);
-    const [projects, setProjects] = useState(() => {
-        const saved = localStorage.getItem('recentProjects');
-        return saved ? JSON.parse(saved) : [];
+    const [projects, setProjects] = useState([]);
+    const [pinnedIds, setPinnedIds] = useState(() => {
+        return JSON.parse(localStorage.getItem(`pinned_projects_${userName}`) || '[]');
     });
+    const fileInputRef = useRef(null);
     // Context menu state
     const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, project: null });
 
+    const fetchProjects = async () => {
+        const list = await projectStorageService.listProjects();
+        setProjects(list);
+    };
+
     useEffect(() => {
-        localStorage.setItem('recentProjects', JSON.stringify(projects));
-    }, [projects]);
+        fetchProjects();
+    }, []);
 
     const handleOpenModal = () => setShowModal(true);
     const handleCloseModal = () => setShowModal(false);
@@ -134,9 +140,8 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
     const filteredProjects = projects
         .filter(proj => {
             const matchesSearch = proj.name.toLowerCase().includes(searchTerm.toLowerCase());
-            if (filter === 'pinned') {
-                return matchesSearch && proj.pinned;
-            }
+            const isPinned = pinnedIds.includes(proj.id);
+            if (filter === 'pinned' && !isPinned) return false;
             return matchesSearch;
         })
         .sort((a, b) => {
@@ -146,8 +151,10 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
             // 'recent' - keep original order (most recent first)
             // 'pinned' - show pinned first then by recent
             if (filter === 'pinned') {
-                if (a.pinned && !b.pinned) return -1;
-                if (!a.pinned && b.pinned) return 1;
+                const isPinnedA = pinnedIds.includes(a.id);
+                const isPinnedB = pinnedIds.includes(b.id);
+                if (isPinnedA && !isPinnedB) return -1;
+                if (!isPinnedA && isPinnedB) return 1;
             }
             return 0;
         });
@@ -213,9 +220,13 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
     };
 
     const handlePinToggle = (proj) => {
-        setProjects(prev => prev.map(p => 
-            p.id === proj.id ? { ...p, pinned: !p.pinned } : p
-        ));
+        setPinnedIds(prev => {
+            const newPins = prev.includes(proj.id) 
+                ? prev.filter(id => id !== proj.id)
+                : [...prev, proj.id];
+            localStorage.setItem(`pinned_projects_${userName}`, JSON.stringify(newPins));
+            return newPins;
+        });
         closeContextMenu();
     };
 
@@ -224,32 +235,37 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
         closeContextMenu();
     };
 
-    const handleDeleteProject = (proj) => {
+    const handleDeleteProject = async (proj) => {
         if (window.confirm(`Delete '${proj.name}'?\nThis cannot be undone.`)) {
+            await projectStorageService.deleteProject(proj.id);
             setProjects(prev => prev.filter(p => p.id !== proj.id));
         }
         closeContextMenu();
     };
 
-    const handleRenameProject = (proj) => {
+    const handleRenameProject = async (proj) => {
         const newName = window.prompt('New name:', proj.name);
         if (newName && newName.trim()) {
             setProjects(prev => prev.map(p => 
                 p.id === proj.id ? { ...p, name: newName.trim() } : p
             ));
+            const fullProj = await projectStorageService.loadProject(proj.id);
+            if (fullProj) {
+                fullProj.name = newName.trim();
+                await projectStorageService.saveProject(proj.id, fullProj);
+            }
         }
         closeContextMenu();
     };
 
-    const handleDuplicateProject = (proj) => {
-        const newProj = {
-            ...proj,
-            id: Date.now(),
-            name: `${proj.name} (Copy)`,
-            date: 'just now',
-            pinned: false
-        };
-        setProjects(prev => [...prev, newProj]);
+    const handleDuplicateProject = async (proj) => {
+        const fullProj = await projectStorageService.loadProject(proj.id);
+        if (fullProj) {
+            const newId = 'proj_' + Date.now();
+            fullProj.name = `${proj.name} (Copy)`;
+            await projectStorageService.saveProject(newId, fullProj);
+            await fetchProjects();
+        }
         closeContextMenu();
     };
 
@@ -427,7 +443,7 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
                         {filteredProjects.map((proj) => (
                             <div key={proj.id} className="col-12 col-md-6 col-lg-6">
                                 <ProjectCard 
-                                    proj={proj} 
+                                    proj={{...proj, pinned: pinnedIds.includes(proj.id)}} 
                                     theme={theme} 
                                     onOpen={() => onProjectOpen(proj.id, proj.name)}
                                     onContextMenu={(e) => handleContextMenu(e, proj)}
@@ -571,6 +587,7 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
                 handleClose={() => setShowSettingsModal(false)}
                 isDarkMode={isDarkMode}
                 theme={theme}
+                onLogout={onLogout}
                 initialUserName={userName}
                 userSettings={userSettings}
                 onSaveSettings={(settings) => {

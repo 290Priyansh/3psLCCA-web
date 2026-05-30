@@ -16,6 +16,8 @@ import Demolition from './gui/components/demolition/Demolition'
 import Outputs from './gui/components/outputs/Outputs'
 import { ProjectDataProvider } from './contexts/ProjectDataContext'
 import { buildProjectFromCreation, backfillGeneralInfo } from './utils/projectCreation'
+import { account, ID } from './lib/appwrite'
+import { projectStorageService } from './lib/projectStorageService'
 import './App.css'
 
 function ProtectedRoute({ isLoggedIn, children }) {
@@ -32,24 +34,26 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
 
   useEffect(() => {
     if (projectId) {
-      const saved = localStorage.getItem(`project_data_${projectId}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          // Only update if it's different to avoid loops if navigate is used
-          if (JSON.stringify(parsed) !== JSON.stringify(projectData)) {
-            setProjectData(backfillGeneralInfo(parsed));
+      const loadData = async () => {
+        const saved = await projectStorageService.loadProject(projectId);
+        if (saved) {
+          try {
+            // Only update if it's different to avoid loops if navigate is used
+            if (JSON.stringify(saved) !== JSON.stringify(projectData)) {
+              setProjectData(backfillGeneralInfo(saved));
+            }
+          } catch (e) {
+            console.error("Error parsing saved project data", e);
           }
-        } catch (e) {
-          console.error("Error parsing saved project data", e);
         }
-      }
+      };
+      loadData();
     }
-  }, [projectId, setProjectData]);
+  }, [projectId]);
 
   useEffect(() => {
     if (projectId && projectData) {
-      localStorage.setItem(`project_data_${projectId}`, JSON.stringify(projectData));
+      projectStorageService.saveProject(projectId, projectData);
     }
   }, [projectData, projectId]);
 
@@ -234,6 +238,21 @@ function App() {
     // Clear legacy localStorage keys to ensure new sessions launch on the Login page
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userName');
+
+    // Check for active Appwrite session on mount if not logged in
+    const checkSession = async () => {
+      try {
+        const user = await account.get();
+        if (user) {
+           setIsLoggedIn(true);
+           setUserName(user.name || user.email.split('@')[0]);
+           sessionStorage.setItem('isGuest', 'false');
+        }
+      } catch (e) {
+        // No active session
+      }
+    };
+    if (!isLoggedIn) checkSession();
   }, []);
 
   useEffect(() => { sessionStorage.setItem('isLoggedIn', isLoggedIn); }, [isLoggedIn]);
@@ -398,13 +417,49 @@ function App() {
   const handleLogin = (isGuest = false, name = "Admin") => {
     setIsLoggedIn(true)
     setUserName(name)
+    sessionStorage.setItem('isGuest', isGuest)
     addLog(isGuest ? `Guest user '${name}' logged in.` : `User '${name}' logged in.`)
     navigate('/')
   }
 
-  const handleAdminLogin = (credentials) => {
-    const namePart = credentials.email ? credentials.email.split('@')[0] : 'Admin';
-    handleLogin(false, namePart);
+  const handleLogout = async () => {
+    const isGuest = sessionStorage.getItem('isGuest') === 'true';
+    if (!isGuest) {
+      try {
+        await account.deleteSession('current');
+      } catch (e) {
+        console.error('Logout error', e);
+      }
+    }
+    setIsLoggedIn(false);
+    sessionStorage.removeItem('isGuest');
+    addLog('Logged out successfully.');
+    navigate('/login');
+  };
+
+  const handleAdminLogin = async (credentials) => {
+    try {
+        if (credentials.action === 'signup') {
+            await account.create(ID.unique(), credentials.email, credentials.password, credentials.name);
+            await account.createEmailPasswordSession(credentials.email, credentials.password);
+            const user = await account.get();
+            handleLogin(false, user.name || credentials.email.split('@')[0]);
+        } else {
+            await account.createEmailPasswordSession(credentials.email, credentials.password);
+            const user = await account.get();
+        }
+    } catch (e) {
+        console.error("Auth error:", e);
+        throw e; // Throw to be handled by Loginpage
+    }
+  };
+
+  const handleGoogleLogin = () => {
+    account.createOAuth2Session(
+        'google',
+        window.location.origin, // Success URL (goes back to Homepage, which triggers checkSession)
+        window.location.origin + '/login' // Failure URL
+    );
   };
 
   const handleProjectCreate = (creationData) => {
@@ -417,14 +472,13 @@ function App() {
     return { id: newProjectId, name: creationData.name };
   };
 
-  const handleProjectOpen = (projectId = 'default_project', projectName = 'Default Project') => {
-    const storageKey = `project_data_${projectId}`;
-    const saved = localStorage.getItem(storageKey);
+  const handleProjectOpen = async (projectId = 'default_project', projectName = 'Default Project') => {
+    const saved = await projectStorageService.loadProject(projectId);
     if (saved) {
       try {
-        setProjectData(backfillGeneralInfo(JSON.parse(saved)));
+        setProjectData(backfillGeneralInfo(saved));
       } catch (e) {
-        console.error('Failed to load project from localStorage', e);
+        console.error('Failed to load project', e);
       }
     } else if (projectName) {
       setProjectData(prev => backfillGeneralInfo({ ...prev, name: projectName }));
@@ -436,7 +490,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={
-        isLoggedIn ? <Navigate to="/" replace /> : <Loginpage onLogin={handleAdminLogin} onGuestLogin={(name) => handleLogin(true, name || 'Guest')} />
+        isLoggedIn ? <Navigate to="/" replace /> : <Loginpage onLogin={handleAdminLogin} onGuestLogin={(name) => handleLogin(true, name || 'Guest')} onGoogleLogin={handleGoogleLogin} />
       } />
 
       <Route path="/" element={
@@ -448,6 +502,7 @@ function App() {
             isDarkMode={isDarkMode}
             userSettings={userSettings}
             setUserSettings={setUserSettings}
+            onLogout={handleLogout}
           />
         </ProtectedRoute>
       } />

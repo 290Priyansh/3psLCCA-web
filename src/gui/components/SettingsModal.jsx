@@ -44,7 +44,7 @@ const getCustomSelectStyles = (isDark, brandColor) => ({
     }),
 });
 
-const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, userSettings, onSaveSettings }) => {
+const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, userSettings, onSaveSettings, onLogout }) => {
     const [displayName, setDisplayName] = useState(initialUserName || '');
     const [appearanceMode, setAppearanceMode] = useState(userSettings?.appearanceMode || 'Auto(follow os)');
     const [lightTheme, setLightTheme] = useState(userSettings?.lightTheme || 'standard light');
@@ -436,13 +436,18 @@ const SettingsModal = ({ show, handleClose, isDarkMode, theme, initialUserName, 
                 </Tab>
             </Tabs>
 
-            <Modal.Footer className="d-flex justify-content-end gap-2">
-                <Button className="btn-settings-save" onClick={handleSave}>
-                    Save
+            <Modal.Footer className="d-flex justify-content-between align-items-center">
+                <Button variant="outline-danger" onClick={onLogout} style={{ fontSize: '14px', minWidth: '80px' }}>
+                    Logout
                 </Button>
-                <Button className="btn-settings-cancel" onClick={handleClose}>
-                    Cancel
-                </Button>
+                <div className="d-flex gap-2">
+                    <Button className="btn-settings-save" onClick={handleSave}>
+                        Save
+                    </Button>
+                    <Button className="btn-settings-cancel" onClick={handleClose}>
+                        Cancel
+                    </Button>
+                </div>
             </Modal.Footer>
         </Modal>
     );

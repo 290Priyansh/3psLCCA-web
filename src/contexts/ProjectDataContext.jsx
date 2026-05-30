@@ -6,17 +6,7 @@ const ProjectDataContext = createContext();
 export const useProjectData = () => useContext(ProjectDataContext);
 
 export const ProjectDataProvider = ({ children, projectId = 'default', initialData, onStateChange }) => {
-    const storageKey = `project_data_${projectId}`;
-
     const [projectData, setProjectData] = useState(() => {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-            try {
-                return backfillGeneralInfo(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to parse project data from localStorage", e);
-            }
-        }
         return backfillGeneralInfo(initialData) || {
             name: 'Bridge_Assessment_01',
             general_info: {},
@@ -36,11 +26,11 @@ export const ProjectDataProvider = ({ children, projectId = 'default', initialDa
     });
 
     useEffect(() => {
-        localStorage.setItem(storageKey, JSON.stringify(projectData));
+        // We notify parent, parent saves to cloud or local via projectStorageService
         if (onStateChange) {
             onStateChange(projectData);
         }
-    }, [projectData, storageKey, onStateChange]);
+    }, [projectData, onStateChange]);
 
     const updateProjectData = useCallback((chunkName, data) => {
         setProjectData(prev => {
