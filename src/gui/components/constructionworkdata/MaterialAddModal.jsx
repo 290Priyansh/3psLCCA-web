@@ -7,6 +7,79 @@ const DB_MAP = {
     "INDIA/Maharashtra/Mumbai-2023": mumbaiData
 };
 
+const UNIT_SELECT_STYLE = {
+    backgroundColor: 'var(--app-bg-card)',
+    color: 'var(--app-text-primary)',
+    borderColor: 'var(--app-border-mid)',
+};
+
+function UnitDropdown({ value, onChange }) {
+    const handleChange = (e) => {
+        if (e.target.value === 'custom_unit_trigger') {
+            const customUnit = prompt('Enter custom unit:');
+            if (customUnit) onChange(customUnit);
+        } else {
+            onChange(e.target.value);
+        }
+    };
+
+    return (
+        <select
+            className="form-select form-select-sm shadow-none"
+            style={UNIT_SELECT_STYLE}
+            value={value}
+            onChange={handleChange}
+        >
+            <option value={value} hidden>{value}</option>
+
+            <optgroup label="— Length —">
+                <option value="m">m (Metre)</option>
+                <option value="mm">mm (Millimetre)</option>
+                <option value="cm">cm (Centimetre)</option>
+                <option value="km">km (Kilometre)</option>
+            </optgroup>
+
+            <optgroup label="— Area —">
+                <option value="m²">m² (Square Metre)</option>
+                <option value="mm²">mm² (Square Millimetre)</option>
+                <option value="cm²">cm² (Square Centimetre)</option>
+                <option value="ha">ha (Hectare)</option>
+            </optgroup>
+
+            <optgroup label="— Volume —">
+                <option value="m³">m³ (Cubic Metre)</option>
+                <option value="mL">mL (Millilitre)</option>
+                <option value="L">L (Litre)</option>
+            </optgroup>
+
+            <optgroup label="— Mass —">
+                <option value="kg">kg (Kilogram)</option>
+                <option value="t">t (Metric Tonne)</option>
+                <option value="q">q (Quintal)</option>
+                <option value="g">g (Gram)</option>
+            </optgroup>
+
+            <optgroup label="— Count —">
+                <option value="Nos.">Nos. (Numbers)</option>
+                <option value="Pcs.">Pcs. (Pieces)</option>
+                <option value="Set">Set (Set)</option>
+                <option value="L.S.">L.S. (Lump Sum)</option>
+            </optgroup>
+
+            <optgroup label="— Time —">
+                <option value="hr">hr (Hour)</option>
+                <option value="day">day (Day)</option>
+                <option value="month">month (Month)</option>
+                <option value="yr">yr (Year)</option>
+            </optgroup>
+
+            <option value="custom_unit_trigger" className="fw-bold" style={{ color: 'var(--app-primary-accent)' }}>
+                + Add Custom Unit...
+            </option>
+        </select>
+    );
+}
+
 const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
     // Robust resolution of the selected database key
     const sorDbKey = projectData?.general_info?.sor_database || projectData?.bridge_data?.sor_database || projectData?.sor_database || '';
@@ -72,19 +145,19 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
         dbData.forEach(sheet => {
             const sheetNorm = sheet.sheetName.toLowerCase();
             const typeNorm = sheet.type.toLowerCase();
-            
+
             // Prioritize if section name matches sheet name or type (e.g. "Girders" vs "Girder")
             const isRelevantSection = normSection.includes(sheetNorm) || sheetNorm.includes(normSection) ||
-                                     normSection.includes(typeNorm) || typeNorm.includes(normSection);
-            
+                normSection.includes(typeNorm) || typeNorm.includes(normSection);
+
             sheet.data.forEach(item => {
                 const itemNorm = normalize(item.name);
                 const allTokensMatch = queryTokens.every(tok => tokenMatches(tok, itemNorm));
-                
+
                 if (allTokensMatch) {
-                    results.push({ 
-                        ...item, 
-                        sheetName: sheet.sheetName, 
+                    results.push({
+                        ...item,
+                        sheetName: sheet.sheetName,
                         type: sheet.type,
                         isRelevantSection
                     });
@@ -100,14 +173,14 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
         return results.sort((a, b) => {
             if (a.isRelevantSection && !b.isRelevantSection) return -1;
             if (!a.isRelevantSection && b.isRelevantSection) return 1;
-            
+
             const aStarts = a.name.toLowerCase().startsWith(workName.toLowerCase());
             const bStarts = b.name.toLowerCase().startsWith(workName.toLowerCase());
             if (aStarts && !bStarts) return -1;
             if (!aStarts && bStarts) return 1;
-            
+
             if (a.name.length !== b.name.length) return a.name.length - b.name.length;
-            
+
             return a.name.localeCompare(b.name);
         }).slice(0, 50);
     }, [dbData, workName, sectionName]);
@@ -117,15 +190,15 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
         setRate(item.rate);
         setUnit(item.unit);
         setSource(item.rate_src);
-        
+
         if (item.carbon_emission !== 'not_available') {
             setIncludeCarbon(true);
             setEmissionFactor(item.carbon_emission);
             setEmissionSource(item.carbon_emission_src);
             // Units mapping might be needed if they don't match exactly
-            if (item.carbon_emission_units_den === 'cum') setEmissionPerUnit('m³ — Cubic Metre');
-            else if (item.carbon_emission_units_den === 'kg') setEmissionPerUnit('kg — Kilogram');
-            else if (item.carbon_emission_units_den === 'MT') setEmissionPerUnit('ton — Tonne');
+            if (item.carbon_emission_units_den === 'cum') setEmissionPerUnit('m³');
+            else if (item.carbon_emission_units_den === 'kg') setEmissionPerUnit('kg');
+            else if (item.carbon_emission_units_den === 'MT') setEmissionPerUnit('t');
         }
 
         setShowSuggestions(false);
@@ -198,18 +271,18 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
                                     onFocus={() => setShowSuggestions(true)}
                                 />
                                 {showSuggestions && suggestions.length > 0 && (
-                                    <ul 
+                                    <ul
                                         ref={suggestionRef}
-                                        className="list-group position-absolute w-100 shadow-sm" 
+                                        className="list-group position-absolute w-100 shadow-sm"
                                         style={{ zIndex: 1100, maxHeight: '250px', overflowY: 'auto', backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)' }}
                                     >
                                         {suggestions.map((item, index) => (
-                                            <li 
+                                            <li
                                                 key={index}
                                                 className={`list-group-item list-group-item-action py-2 border-0 ${selectedIndex === index ? 'active' : ''}`}
-                                                style={{ 
-                                                    cursor: 'pointer', 
-                                                    fontSize: '0.85rem', 
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.85rem',
                                                     backgroundColor: selectedIndex === index ? 'var(--app-primary-accent)' : 'transparent',
                                                     color: selectedIndex === index ? 'white' : 'var(--app-text-primary)'
                                                 }}
@@ -253,12 +326,7 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
                                 </div>
                                 <div className="col-md-6">
                                     <label className="form-label fw-medium mb-1">Unit <span className="text-danger">*</span></label>
-                                    <input
-                                        className="form-control form-control-sm"
-                                        value={unit}
-                                        onChange={e => setUnit(e.target.value)}
-                                        placeholder="e.g. cum, kg, MT"
-                                    />
+                                    <UnitDropdown value={unit} onChange={setUnit} />
                                 </div>
                             </div>
 
@@ -313,12 +381,7 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
                                     </div>
                                     <div className="col-md-4">
                                         <label className="form-label mb-1">Per Unit</label>
-                                        <input
-                                            className="form-control form-control-sm"
-                                            value={emissionPerUnit}
-                                            onChange={e => setEmissionPerUnit(e.target.value)}
-                                            placeholder="e.g. kgCO2e/cum"
-                                        />
+                                        <UnitDropdown value={emissionPerUnit} onChange={setEmissionPerUnit} />
                                     </div>
                                     <div className="col-md-4">
                                         <label className="form-label mb-1">Source</label>
