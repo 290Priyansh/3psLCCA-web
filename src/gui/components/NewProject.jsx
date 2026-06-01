@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import Select from 'react-select';
-import { COUNTRIES, CURRENCIES } from './utils/countriesdata';
+import { COUNTRIES, CURRENCIES, COUNTRY_TO_CURRENCY } from './utils/countriesdata';
 
 const countryOptions = COUNTRIES.map(c => ({ value: c, label: c }));
 const currencyOptions = CURRENCIES.map(c => ({ value: c, label: c }));
@@ -194,7 +194,15 @@ const NewProject = ({ show, handleClose, onProjectOpen, onProjectCreate, isDarkM
                             <Select
                                 options={countryOptions}
                                 value={country}
-                                onChange={setCountry}
+                                onChange={(selectedCountry) => {
+                                    setCountry(selectedCountry);
+                                    if (selectedCountry && COUNTRY_TO_CURRENCY[selectedCountry.value]) {
+                                        const currCode = COUNTRY_TO_CURRENCY[selectedCountry.value];
+                                        setCurrency({ value: currCode, label: currCode });
+                                    } else {
+                                        setCurrency(null);
+                                    }
+                                }}
                                 placeholder="— Select country —"
                                 styles={customSelectStyles}
                                 menuPlacement="auto"
@@ -227,6 +235,7 @@ const NewProject = ({ show, handleClose, onProjectOpen, onProjectCreate, isDarkM
                                 menuPosition="fixed"
                                 maxMenuHeight={180}
                                 isSearchable
+                                isDisabled={true}
                             />
                             {validated && !currency ? (
                                 <div className="text-danger mt-1" style={{ fontSize: '0.75rem' }}>
@@ -234,7 +243,7 @@ const NewProject = ({ show, handleClose, onProjectOpen, onProjectCreate, isDarkM
                                 </div>
                             ) : (
                                 <Form.Text style={{ fontSize: '0.75rem', color: colors.textMuted, display: 'block', marginTop: '2px' }}>
-                                    Cannot be changed after project creation.
+                                    Auto-filled based on the selected country. Cannot be changed after project creation.
                                 </Form.Text>
                             )}
                         </Form.Group>

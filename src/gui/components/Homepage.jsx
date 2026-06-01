@@ -101,8 +101,11 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState('recent'); // 'recent', 'name', 'pinned'
     const [projects, setProjects] = useState([]);
+    const isGuest = sessionStorage.getItem('isGuest') === 'true';
+    const pinStorageKey = isGuest ? 'pinned_projects_guest' : `pinned_projects_${userName}`;
+
     const [pinnedIds, setPinnedIds] = useState(() => {
-        return JSON.parse(localStorage.getItem(`pinned_projects_${userName}`) || '[]');
+        return JSON.parse(localStorage.getItem(pinStorageKey) || '[]');
     });
     const fileInputRef = useRef(null);
     // Context menu state
@@ -224,7 +227,7 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
             const newPins = prev.includes(proj.id) 
                 ? prev.filter(id => id !== proj.id)
                 : [...prev, proj.id];
-            localStorage.setItem(`pinned_projects_${userName}`, JSON.stringify(newPins));
+            localStorage.setItem(pinStorageKey, JSON.stringify(newPins));
             return newPins;
         });
         closeContextMenu();

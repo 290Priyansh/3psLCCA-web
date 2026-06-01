@@ -1434,3 +1434,10 @@ export const COUNTRIES = [...new Set(data.map(item => item.COUNTRY))]
 
 export const CURRENCIES = [...new Set(data.map(item => item.CURRENCY_CODE))]
   .sort((a, b) => (a !== "INR") - (b !== "INR") || a.localeCompare(b));
+
+export const COUNTRY_TO_CURRENCY = data.reduce((acc, curr) => {
+  if (curr.COUNTRY && curr.CURRENCY_CODE) {
+    acc[curr.COUNTRY] = curr.CURRENCY_CODE;
+  }
+  return acc;
+}, {});

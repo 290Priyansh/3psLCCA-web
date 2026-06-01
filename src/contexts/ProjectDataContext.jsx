@@ -9,7 +9,16 @@ export const ProjectDataProvider = ({ children, projectId = 'default', initialDa
     const [projectData, setProjectData] = useState(() => {
         return backfillGeneralInfo(initialData) || {
             name: 'Bridge_Assessment_01',
-            general_info: {},
+            country: 'INDIA',
+            currency: 'INR',
+            unitSystem: 'Metric (SI)',
+            createdAt: new Date().toLocaleDateString(),
+            general_info: {
+                project_name: 'Bridge_Assessment_01',
+                project_country: 'INDIA',
+                project_currency: 'INR',
+                unit_system: 'Metric (SI)'
+            },
             bridge_data: {},
             financial_data: {},
             traffic_data: {},

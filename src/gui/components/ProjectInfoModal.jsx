@@ -6,12 +6,13 @@ import Logo3psLCCA from '../../assets/logo-3psLCCA.svg';
 const ProjectInfoModal = ({ show, onHide, projectData }) => {
     if (!projectData) return null;
 
+    const gi = projectData.general_info || {};
     const details = [
-        { label: 'Project Name', value: projectData.name, icon: FaInfoCircle },
+        { label: 'Project Name', value: projectData.name || gi.project_name || 'N/A', icon: FaInfoCircle },
         { label: 'Created At', value: projectData.createdAt || 'N/A', icon: FaCalendarAlt },
-        { label: 'Country', value: projectData.country, icon: FaGlobe },
-        { label: 'Currency', value: projectData.currency, icon: FaCoins },
-        { label: 'Unit System', value: projectData.unitSystem, icon: FaRulerCombined },
+        { label: 'Country', value: projectData.country || gi.project_country || 'N/A', icon: FaGlobe },
+        { label: 'Currency', value: projectData.currency || gi.project_currency || 'N/A', icon: FaCoins },
+        { label: 'Unit System', value: projectData.unitSystem || gi.unit_system || 'N/A', icon: FaRulerCombined },
     ];
 
     return (
