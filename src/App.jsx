@@ -32,8 +32,12 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
   const navigate = useNavigate();
   const activeNode = nodeId ? decodeURIComponent(nodeId) : 'General Information';
 
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [saveState, setSaveState] = useState('saved');
+
   useEffect(() => {
     if (projectId) {
+      setDataLoaded(false);
       const loadData = async () => {
         const saved = await projectStorageService.loadProject(projectId);
         if (saved) {
@@ -46,16 +50,26 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
             console.error("Error parsing saved project data", e);
           }
         }
+        setDataLoaded(true);
       };
       loadData();
     }
   }, [projectId]);
 
   useEffect(() => {
-    if (projectId && projectData) {
-      projectStorageService.saveProject(projectId, projectData);
+    if (projectId && projectData && dataLoaded) {
+      setSaveState('saving');
+      const timeoutId = setTimeout(async () => {
+        try {
+          await projectStorageService.saveProject(projectId, projectData);
+          setSaveState('saved');
+        } catch (error) {
+          setSaveState('error');
+        }
+      }, 500);
+      return () => clearTimeout(timeoutId);
     }
-  }, [projectData, projectId]);
+  }, [projectData, projectId, dataLoaded]);
 
   const updateProjectData = (section, data) => {
     setProjectData(prev => ({
@@ -175,6 +189,16 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
     });
   }, [setProjectData]);
 
+  if (!dataLoaded) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh', backgroundColor: 'var(--app-bg-main)' }}>
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading project data...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ProjectDataProvider
       key={projectId}
@@ -199,6 +223,7 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
         projectData={projectData}
         onRenameProject={handleRenameProject}
         onExportProject={handleExportProject}
+        saveState={saveState}
       >
         {content ? React.cloneElement(content, {
           logs,

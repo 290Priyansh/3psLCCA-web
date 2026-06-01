@@ -60,16 +60,26 @@ npm -v
    cd 3psLCCA-web
    ```
 
-2. **Install Dependencies**
+2. **Configure Appwrite Backend (Optional but Recommended)**
+   This application utilizes Appwrite for backend user authentication and cloud project storage.
+   - You can either ask Swayam for the official credentials, or set up your own Appwrite instance.
+   - Copy the `.env.example` file to `.env`:
+     ```bash
+     cp .env.example .env
+     ```
+   - Fill in your `VITE_APPWRITE_*` credentials in the `.env` file. If you skip this, you can still use the app in "Guest Mode" which relies on local browser storage.
+
+3. **Install Dependencies**
    Run the following command to download and install all required node modules:
-
+   ```bash
    npm install
+   ```
    
-
-3. **Launch the Development Server**
+4. **Launch the Development Server**
    Start the Vite dev server with Hot Module Replacement (HMR):
-   
+   ```bash
    npm run dev
+   ```
 
    *By default, the application will be hosted at `http://localhost:5173`.*
 

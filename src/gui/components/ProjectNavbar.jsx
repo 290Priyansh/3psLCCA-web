@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Navbar, Nav, NavDropdown, Button, Tooltip, OverlayTrigger } from 'react-bootstrap';
-import { FaHome, FaLock, FaLockOpen, FaInfoCircle, FaCheckCircle, FaUndo, FaSave, FaCalculator, FaHistory, FaFolderOpen, FaPlus, FaSignOutAlt, FaCog } from 'react-icons/fa';
+import { Navbar, Nav, NavDropdown, Button, Tooltip, OverlayTrigger, Spinner } from 'react-bootstrap';
+import { FaHome, FaLock, FaLockOpen, FaInfoCircle, FaCheckCircle, FaUndo, FaSave, FaCalculator, FaHistory, FaFolderOpen, FaPlus, FaSignOutAlt, FaCog, FaExclamationTriangle } from 'react-icons/fa';
 import NewProjectModal from './NewProjectModal';
 import OpenProjectModal from './OpenProjectModal';
 import RenameProjectModal from './RenameProjectModal';
@@ -109,7 +109,7 @@ const CustomNavBtn = ({ variant, outlineColor, outlineHoverBg, children, icon: I
     );
 };
 
-const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProject, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId }) => {
+const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProject, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId, saveState = 'saved' }) => {
     const [showNewProjectModal, setShowNewProjectModal] = useState(false);
     const [showOpenProjectModal, setShowOpenProjectModal] = useState(false);
     const [showRenameModal, setShowRenameModal] = useState(false);
@@ -178,9 +178,17 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProjec
             </Nav>
 
             <Nav className="ms-auto align-items-center column-gap-2 flex-row flex-wrap mt-2 mt-lg-0">
-                <div className="d-flex align-items-center me-2" style={{ color: 'var(--app-primary-accent)', fontSize: '12px', opacity: 0.9 }}>
-                    <FaCheckCircle size={12} className="me-1" />
-                    <span>All changes saved</span>
+                <div className="d-flex align-items-center me-2" style={{ 
+                    color: saveState === 'error' ? 'var(--bs-danger)' : (saveState === 'saving' ? 'var(--bs-warning)' : 'var(--app-primary-accent)'), 
+                    fontSize: '12px', 
+                    opacity: 0.9 
+                }}>
+                    {saveState === 'saving' && <Spinner size="sm" animation="border" className="me-1" style={{ width: '12px', height: '12px', borderWidth: '0.15em' }} />}
+                    {saveState === 'saved' && <FaCheckCircle size={12} className="me-1" />}
+                    {saveState === 'error' && <FaExclamationTriangle size={12} className="me-1" />}
+                    <span>
+                        {saveState === 'saving' ? 'Saving...' : (saveState === 'error' ? 'Save failed - retry' : 'All changes saved')}
+                    </span>
                 </div>
                 
 
@@ -203,14 +211,17 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProjec
                     onClick={() => {
                         addLog("Calculation request initiated...");
                         setTimeout(() => addLog("Calculation engine: processing LCCA data models."), 300);
-                        setTimeout(() => addLog("Calculation success: output matrices generated."), 1200);
+                        setTimeout(() => {
+                            addLog("Calculation success: output matrices generated.");
+                            setIsLocked(true);
+                        }, 1200);
                         setActiveNode('Outputs');
                     }}
                 >
                     <FaCalculator size={13} className="me-2" />
                     Calculate
                 </Button>
-
+ 
                 <OverlayTrigger
                     placement="bottom"
                     overlay={<Tooltip>{isLocked ? 'Unlock Project' : 'Lock Project'}</Tooltip>}
@@ -219,8 +230,15 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProjec
                         variant="link"
                         className="p-1 mx-1 text-secondary"
                         onClick={() => {
-                            setIsLocked(!isLocked);
-                            addLog(isLocked ? "Project unlocked. Operations resumed." : "Project locked. All operations suspended.");
+                            if (isLocked) {
+                                if (window.confirm("Unlocking will clear the current results and reset all inputs.\n\nContinue?")) {
+                                    setIsLocked(false);
+                                    addLog("Project unlocked. Operations resumed.");
+                                }
+                            } else {
+                                setIsLocked(true);
+                                addLog("Project locked. All operations suspended.");
+                            }
                         }}
                         style={{ transition: 'all 0.2s' }}
                     >

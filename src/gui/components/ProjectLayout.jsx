@@ -1,8 +1,73 @@
 import React from 'react';
 import ProjectNavbar from './ProjectNavbar';
 import Sidebar from './Sidebar';
+import { FaLock } from 'react-icons/fa';
 
-const ProjectLayout = ({ children, activeNode, setActiveNode, onBackToHome, onNewProject, onOpenProject, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId }) => {
+const LockedOverlay = () => {
+    const [showBanner, setShowBanner] = React.useState(false);
+    const [timer, setTimer] = React.useState(null);
+
+    const handleClick = () => {
+        setShowBanner(true);
+        if (timer) clearTimeout(timer);
+        const t = setTimeout(() => {
+            setShowBanner(false);
+        }, 2000);
+        setTimer(t);
+    };
+
+    React.useEffect(() => {
+        return () => {
+            if (timer) clearTimeout(timer);
+        };
+    }, [timer]);
+
+    return (
+        <>
+            <div 
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 999,
+                    cursor: 'not-allowed',
+                    backgroundColor: 'rgba(0, 0, 0, 0.01)',
+                }}
+                onClick={handleClick}
+            />
+            <div 
+                style={{
+                    position: 'fixed',
+                    top: '50%',
+                    left: '50%',
+                    transform: `translate(-50%, -50%) scale(${showBanner ? 1 : 0.95})`,
+                    backgroundColor: 'var(--app-bg-card, #ffffff)',
+                    color: 'var(--app-text-primary, #212529)',
+                    border: '1.5px solid var(--app-primary-accent, #6366f1)',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.2)',
+                    fontSize: '0.95rem',
+                    fontWeight: '500',
+                    pointerEvents: 'none',
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    opacity: showBanner ? 1 : 0,
+                    transition: 'opacity 0.25s ease-in-out, transform 0.25s ease-in-out',
+                }}
+            >
+                <FaLock style={{ color: 'var(--app-primary-accent, #6366f1)', fontSize: '1.1em' }} />
+                Project is locked - click Unlock in the toolbar to edit.
+            </div>
+        </>
+    );
+};
+
+const ProjectLayout = ({ children, activeNode, setActiveNode, onBackToHome, onNewProject, onOpenProject, addLog, isLocked, setIsLocked, projectName, projectData, onRenameProject, onExportProject, projectId, saveState }) => {
     return (
         <div className="d-flex flex-column overflow-hidden" style={{ height: '100vh', width: '100vw' }}>
             <ProjectNavbar 
@@ -18,11 +83,15 @@ const ProjectLayout = ({ children, activeNode, setActiveNode, onBackToHome, onNe
                 projectData={projectData}
                 onRenameProject={onRenameProject}
                 onExportProject={onExportProject}
+                saveState={saveState}
             />
             <div className="d-flex flex-grow-1 overflow-hidden">
                 <Sidebar activeNode={activeNode} setActiveNode={setActiveNode} />
                 <div className="flex-grow-1 overflow-y-auto" style={{ backgroundColor: 'var(--app-bg-main)', transition: 'background-color 0.3s ease' }}>
-                    {children}
+                    <div style={{ position: 'relative', minHeight: '100%' }}>
+                        {children}
+                        {isLocked && activeNode !== 'Outputs' && activeNode !== 'Logs' && <LockedOverlay />}
+                    </div>
                 </div>
             </div>
         </div>
