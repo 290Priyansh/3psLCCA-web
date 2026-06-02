@@ -65,6 +65,26 @@ const Foundation = ({ controller }) => {
         });
     }, []);
 
+    const handleRowUpdate = useCallback((sectionId, rowId, updatedRowData) => {
+        setSections((prev) => {
+            const next = prev.map((sec) =>
+                sec.id !== sectionId ? sec : {
+                    ...sec,
+                    rows: sec.rows.map((r) =>
+                        r.id !== rowId ? r : { ...r, ...updatedRowData }
+                    ),
+                }
+            );
+            return next;
+        });
+    }, []);
+
+    const handleDeleteSection = useCallback((sectionId) => {
+        if (window.confirm("Are you sure you want to delete this component section?")) {
+            setSections((prev) => prev.filter((sec) => sec.id !== sectionId));
+        }
+    }, []);
+
     const handleAddRow = useCallback((sectionId, newRowData) => {
         setSections((prev) => {
             const next = prev.map((sec) =>
@@ -96,7 +116,9 @@ const Foundation = ({ controller }) => {
                     section={sec}
                     onRowChange={handleRowChange}
                     onRowDelete={handleRowDelete}
+                    onRowUpdate={handleRowUpdate}
                     onAddRow={handleAddRow}
+                    onSectionDelete={handleDeleteSection}
                     projectData={projectData}
                 />
             ))}

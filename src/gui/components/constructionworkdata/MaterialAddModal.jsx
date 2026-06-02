@@ -80,29 +80,29 @@ function UnitDropdown({ value, onChange }) {
     );
 }
 
-const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
+const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData, editData }) => {
     // Robust resolution of the selected database key
     const sorDbKey = projectData?.general_info?.sor_database || projectData?.bridge_data?.sor_database || projectData?.sor_database || '';
     const dbData = DB_MAP[sorDbKey];
 
     // Basic fields
-    const [workName, setWorkName] = useState('');
-    const [allowEditingDB, setAllowEditingDB] = useState(false);
-    const [qty, setQty] = useState('');
-    const [unit, setUnit] = useState('m³ — Cubic Metre');
-    const [rate, setRate] = useState('');
-    const [source, setSource] = useState('');
+    const [workName, setWorkName] = useState(editData ? editData.workName : '');
+    const [allowEditingDB, setAllowEditingDB] = useState(editData ? !!editData.allowEditingDB : false);
+    const [qty, setQty] = useState(editData ? editData.qty : '');
+    const [unit, setUnit] = useState(editData ? editData.unit : 'm³ — Cubic Metre');
+    const [rate, setRate] = useState(editData ? editData.rate : '');
+    const [source, setSource] = useState(editData ? editData.source : '');
 
     // Carbon Emission
-    const [includeCarbon, setIncludeCarbon] = useState(true);
-    const [emissionFactor, setEmissionFactor] = useState('');
-    const [emissionPerUnit, setEmissionPerUnit] = useState('m³ — Cubic Metre');
-    const [emissionSource, setEmissionSource] = useState('');
+    const [includeCarbon, setIncludeCarbon] = useState(editData ? !!editData.carbonEmission : true);
+    const [emissionFactor, setEmissionFactor] = useState(editData?.carbonEmission ? editData.carbonEmission.factor : '');
+    const [emissionPerUnit, setEmissionPerUnit] = useState(editData?.carbonEmission ? editData.carbonEmission.perUnit : 'm³ — Cubic Metre');
+    const [emissionSource, setEmissionSource] = useState(editData?.carbonEmission ? editData.carbonEmission.source : '');
 
     // Recyclability
-    const [includeRecyclability, setIncludeRecyclability] = useState(false);
-    const [grade, setGrade] = useState('');
-    const [type, setType] = useState('');
+    const [includeRecyclability, setIncludeRecyclability] = useState(editData ? !!editData.recyclability : false);
+    const [grade, setGrade] = useState(editData?.recyclability ? editData.recyclability.grade : '');
+    const [type, setType] = useState(editData?.recyclability ? editData.recyclability.type : '');
 
     // Search Suggestions
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -245,7 +245,7 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
                         <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style={{ backgroundColor: 'var(--app-bg-alt)', borderColor: 'var(--app-border-mid)' }}>
                             <div className="d-flex align-items-center gap-2" style={{ fontSize: '0.9rem' }}>
                                 <span style={{ color: 'var(--app-primary-accent)', fontSize: '1.2rem' }}>⛁</span>
-                                <span>Add Material — {sectionName}</span>
+                                <span>{editData ? 'Edit Material' : 'Add Material'} — {sectionName}</span>
                             </div>
                             <div className="d-flex gap-3 align-items-center" style={{ cursor: 'pointer', fontSize: '1.1rem' }}>
                                 <span className="opacity-75" onClick={onClose}>—</span>
@@ -440,7 +440,7 @@ const MaterialAddModal = ({ sectionName, onClose, onAdd, projectData }) => {
                             <button className="btn px-4" style={{ backgroundColor: 'transparent', color: 'var(--app-text-primary)', border: '1px solid var(--app-primary-accent)' }}>Save to Custom DB...</button>
                             <div className="d-flex gap-2">
                                 <button className="btn px-4" style={{ backgroundColor: 'var(--app-bg-card)', color: 'var(--app-text-primary)', border: '1px solid var(--app-border-mid)' }} onClick={onClose}>Cancel</button>
-                                <button className="btn px-4" style={{ backgroundColor: 'var(--app-primary-accent)', color: 'white', border: 'none' }} onClick={handleAdd}>Add to Table</button>
+                                <button className="btn px-4" style={{ backgroundColor: 'var(--app-primary-accent)', color: 'white', border: 'none' }} onClick={handleAdd}>{editData ? 'Save Changes' : 'Add to Table'}</button>
                             </div>
                         </div>
 

@@ -29,12 +29,29 @@ const SubStructure = ({ controller }) => {
     }, [sections, updateProjectData]);
     const handleRowChange = useCallback((sId, rId, field, val) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: s.rows.map((r) => r.id !== rId ? r : { ...r, [field]: val }) })), []);
     const handleRowDelete = useCallback((sId, rId) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: s.rows.filter((r) => r.id !== rId) })), []);
+    const handleRowUpdate = useCallback((sId, rId, updatedRowData) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: s.rows.map((r) => r.id !== rId ? r : { ...r, ...updatedRowData }) })), []);
+    const handleDeleteSection = useCallback((sId) => {
+        if (window.confirm("Are you sure you want to delete this component section?")) {
+            setSections((prev) => prev.filter((s) => s.id !== sId));
+        }
+    }, []);
     const handleAddRow = useCallback((sId, newRowData) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: [...s.rows, { id: uid(), ...newRowData }] })), []);
     const handleAddSection = () => setSections((prev) => [...prev, { id: uid(), name: `Section ${prev.length + 1}`, rows: [] }]);
 
     return (
         <div>
-            {sections.map((sec) => <MaterialTable key={sec.id} section={sec} onRowChange={handleRowChange} onRowDelete={handleRowDelete} onAddRow={handleAddRow} projectData={projectData} />)}
+            {sections.map((sec) => (
+                <MaterialTable
+                    key={sec.id}
+                    section={sec}
+                    onRowChange={handleRowChange}
+                    onRowDelete={handleRowDelete}
+                    onRowUpdate={handleRowUpdate}
+                    onAddRow={handleAddRow}
+                    onSectionDelete={handleDeleteSection}
+                    projectData={projectData}
+                />
+            ))}
             <button
                 className="btn btn-sm mt-3"
                 style={{ backgroundColor: 'transparent', color: 'var(--app-text-primary)', border: '1px solid var(--app-border-mid)', transition: 'background-color 0.2s', fontWeight: 500 }}
