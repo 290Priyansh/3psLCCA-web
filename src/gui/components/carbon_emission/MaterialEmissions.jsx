@@ -102,7 +102,7 @@ const MaterialEmissions = ({ controller }) => {
                     <tr>
                         <th rowSpan="2" style={{ width: '12%' }}>Category</th>
                         <th rowSpan="2" style={{ width: '22%' }}>Material</th>
-                        <th colSpan="2">Qty</th>
+                        <th colSpan="2">Quantity</th>
                         <th rowSpan="2" style={{ width: '10%' }}>Conv. Factor</th>
                         <th colSpan="2">Emission</th>
                         <th rowSpan="2" className="text-end" style={{ width: '12%' }}>{isIncludedSection ? 'Total kgCO₂e' : 'Reason'}</th>
@@ -124,10 +124,10 @@ const MaterialEmissions = ({ controller }) => {
                                 <td className="text-secondary opacity-75">{m.category}</td>
                                 <td className="fw-medium">{m.name}</td>
                                 <td className="text-end font-monospace">{m.quantity.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td>
-                                <td className="text-center text-secondary opacity-50">{m.unit}</td>
+                                <td className="text-center text-secondary opacity-70">{m.unit}</td>
                                 <td className="text-center font-monospace">{m.cf.toFixed(2)}</td>
                                 <td className="text-end font-monospace">{m.ef.toFixed(3)}</td>
-                                <td className="text-center text-secondary opacity-50">{m.unit ? `kg/${m.unit}` : 'kg'}</td>
+                                <td className="text-center text-secondary opacity-70">{m.unit ? `kg/${m.unit}` : 'kg'}</td>
                                 <td className="text-end fw-bold font-monospace" style={{ color: isIncludedSection ? 'var(--app-text-primary)' : 'var(--app-text-muted)' }}>
                                     {isIncludedSection ? totalEm.toLocaleString(undefined, { maximumFractionDigits: 3, minimumFractionDigits: 3 }) : '-'}
                                 </td>
