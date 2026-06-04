@@ -64,12 +64,32 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
           await projectStorageService.saveProject(projectId, projectData);
           setSaveState('saved');
         } catch (error) {
-          setSaveState('error');
+          if (error.message === 'offline') {
+            setSaveState('offline');
+          } else {
+            setSaveState('error');
+          }
         }
       }, 500);
       return () => clearTimeout(timeoutId);
     }
   }, [projectData, projectId, dataLoaded]);
+
+  // Handle abrupt closure to ensure debounced data is saved locally
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (projectId && projectData) {
+        const storageKey = `project_data_${projectId}`;
+        const localWrapper = {
+            data: { ...projectData, _lastModified: Date.now() },
+            sync_status: sessionStorage.getItem('isGuest') === 'true' ? 'synced' : 'pending'
+        };
+        localStorage.setItem(storageKey, JSON.stringify(localWrapper));
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [projectId, projectData]);
 
   const updateProjectData = (section, data) => {
     setProjectData(prev => ({
@@ -278,6 +298,22 @@ function App() {
       }
     };
     if (!isLoggedIn) checkSession();
+
+    // Offline sync hooks
+    const handleOnline = () => {
+      console.log("Internet restored. Triggering background sync...");
+      projectStorageService.syncPendingProjects();
+    };
+    window.addEventListener('online', handleOnline);
+
+    const syncInterval = setInterval(() => {
+      projectStorageService.syncPendingProjects();
+    }, 60000); // 60 seconds
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      clearInterval(syncInterval);
+    };
   }, []);
 
   useEffect(() => { sessionStorage.setItem('isLoggedIn', isLoggedIn); }, [isLoggedIn]);

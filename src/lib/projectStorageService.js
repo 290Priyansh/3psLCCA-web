@@ -14,39 +14,52 @@ const getCurrentUserId = async () => {
 
 /**
  * Service to abstract storing project data.
- * Checks if the user is a guest (sessionStorage.getItem('isGuest') === 'true').
- * If guest, uses localStorage.
- * If logged in, uses Appwrite Databases.
+ * Implements an Offline-First strategy: always writes to localStorage,
+ * and syncs to Appwrite in the background. Handles conflict resolution
+ * using a "Last Write Wins" approach via _lastModified timestamps.
  */
 export const projectStorageService = {
     async saveProject(projectId, projectData) {
         const isGuest = sessionStorage.getItem('isGuest') === 'true';
+        const now = Date.now();
         
-        if (isGuest) {
-            // Guest mode: save to localStorage
-            const storageKey = `project_data_${projectId}`;
-            localStorage.setItem(storageKey, JSON.stringify(projectData));
-            
-            // Update recent projects list
-            let recent = JSON.parse(localStorage.getItem('recentProjects') || '[]');
-            const index = recent.findIndex(p => p.id === projectId);
-            if (index > -1) {
-                recent[index].name = projectData.name || recent[index].name;
-            } else {
-                recent.push({
-                    id: projectId,
-                    name: projectData.name || 'Unnamed Project',
-                    date: 'just now'
-                });
-            }
-            localStorage.setItem('recentProjects', JSON.stringify(recent));
+        // Inject timestamp so it gets saved in both local and cloud
+        projectData._lastModified = now;
+
+        // 1. Always Save Locally First
+        const storageKey = `project_data_${projectId}`;
+        const localWrapper = {
+            data: projectData,
+            sync_status: isGuest ? 'synced' : 'pending'
+        };
+        localStorage.setItem(storageKey, JSON.stringify(localWrapper));
+        
+        // Update recent projects
+        let recent = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+        const index = recent.findIndex(p => p.id === projectId);
+        if (index > -1) {
+            recent[index].name = projectData.name || recent[index].name;
+            recent[index].date = new Date(now).toLocaleDateString();
         } else {
-            // Logged in mode: save to Appwrite
+            recent.push({
+                id: projectId,
+                name: projectData.name || 'Unnamed Project',
+                date: new Date(now).toLocaleDateString()
+            });
+        }
+        localStorage.setItem('recentProjects', JSON.stringify(recent));
+
+        // 2. Try to sync to cloud if logged in
+        if (!isGuest) {
             try {
                 const userId = await getCurrentUserId();
                 if (!userId) throw new Error("Not logged in");
 
-                // Check if project exists in Appwrite
+                const cloudData = {
+                    name: projectData.name || 'Unnamed Project',
+                    data: JSON.stringify(projectData)
+                };
+
                 try {
                     await databases.getDocument(
                         APPWRITE_CONFIG.databaseId,
@@ -54,42 +67,50 @@ export const projectStorageService = {
                         projectId
                     );
                     
-                    // Exists, update it
                     await databases.updateDocument(
                         APPWRITE_CONFIG.databaseId,
                         APPWRITE_CONFIG.collectionId,
                         projectId,
-                        {
-                            name: projectData.name || 'Unnamed Project',
-                            data: JSON.stringify(projectData)
-                        }
+                        cloudData
                     );
                 } catch (e) {
-                    // Does not exist, create it
                     await databases.createDocument(
                         APPWRITE_CONFIG.databaseId,
                         APPWRITE_CONFIG.collectionId,
                         projectId,
-                        {
-                            name: projectData.name || 'Unnamed Project',
-                            data: JSON.stringify(projectData),
-                            userId: userId
-                        }
+                        { ...cloudData, userId: userId }
                     );
                 }
+                
+                // Cloud save success: update local status
+                localWrapper.sync_status = 'synced';
+                localStorage.setItem(storageKey, JSON.stringify(localWrapper));
+
             } catch (err) {
-                console.error("Failed to save project to cloud", err);
+                console.error("Failed to save project to cloud. Preserved locally.", err);
+                throw new Error("offline");
             }
         }
     },
 
     async loadProject(projectId) {
         const isGuest = sessionStorage.getItem('isGuest') === 'true';
+        const storageKey = `project_data_${projectId}`;
+        const savedStr = localStorage.getItem(storageKey);
         
+        // Handle backwards compatibility where local storage might just be raw projectData
+        let localData = null;
+        if (savedStr) {
+            const parsed = JSON.parse(savedStr);
+            if (parsed.sync_status && parsed.data) {
+                localData = parsed.data;
+            } else {
+                localData = parsed;
+            }
+        }
+
         if (isGuest) {
-            const storageKey = `project_data_${projectId}`;
-            const saved = localStorage.getItem(storageKey);
-            return saved ? JSON.parse(saved) : null;
+            return localData;
         } else {
             try {
                 const doc = await databases.getDocument(
@@ -97,10 +118,27 @@ export const projectStorageService = {
                     APPWRITE_CONFIG.collectionId,
                     projectId
                 );
-                return JSON.parse(doc.data);
+                const cloudData = JSON.parse(doc.data);
+                
+                // Conflict resolution: Last Write Wins
+                const cloudTime = cloudData._lastModified || 0;
+                const localTime = localData?._lastModified || 0;
+                
+                if (localData && localTime > cloudTime) {
+                    // Local is newer (e.g. user was offline) -> queue a sync
+                    console.log("Local data is newer than cloud. Using local data.");
+                    const wrapper = { data: localData, sync_status: 'pending' };
+                    localStorage.setItem(storageKey, JSON.stringify(wrapper));
+                    return localData;
+                } else {
+                    // Cloud is newer or same -> use cloud and update local cache
+                    const wrapper = { data: cloudData, sync_status: 'synced' };
+                    localStorage.setItem(storageKey, JSON.stringify(wrapper));
+                    return cloudData;
+                }
             } catch (e) {
-                console.error("Failed to load project from cloud", e);
-                return null;
+                console.error("Failed to load project from cloud. Falling back to local.", e);
+                return localData;
             }
         }
     },
@@ -128,11 +166,12 @@ export const projectStorageService = {
                     id: doc.$id,
                     name: doc.name,
                     date: new Date(doc.$createdAt).toLocaleDateString(),
-                    pinned: false // You might want to add 'pinned' to Appwrite schema if needed
+                    pinned: false
                 }));
             } catch (e) {
                 console.error("Failed to list projects from cloud", e);
-                return [];
+                // Fallback to local list if offline
+                return JSON.parse(localStorage.getItem('recentProjects') || '[]');
             }
         }
     },
@@ -140,12 +179,13 @@ export const projectStorageService = {
     async deleteProject(projectId) {
         const isGuest = sessionStorage.getItem('isGuest') === 'true';
         
-        if (isGuest) {
-            localStorage.removeItem(`project_data_${projectId}`);
-            let recent = JSON.parse(localStorage.getItem('recentProjects') || '[]');
-            recent = recent.filter(p => p.id !== projectId);
-            localStorage.setItem('recentProjects', JSON.stringify(recent));
-        } else {
+        // Always delete locally
+        localStorage.removeItem(`project_data_${projectId}`);
+        let recent = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+        recent = recent.filter(p => p.id !== projectId);
+        localStorage.setItem('recentProjects', JSON.stringify(recent));
+
+        if (!isGuest) {
             try {
                 await databases.deleteDocument(
                     APPWRITE_CONFIG.databaseId,
@@ -155,6 +195,64 @@ export const projectStorageService = {
             } catch (e) {
                 console.error("Failed to delete project from cloud", e);
             }
+        }
+    },
+
+    async syncPendingProjects() {
+        const isGuest = sessionStorage.getItem('isGuest') === 'true';
+        if (isGuest) return;
+
+        try {
+            const userId = await getCurrentUserId();
+            if (!userId) return;
+
+            let recent = JSON.parse(localStorage.getItem('recentProjects') || '[]');
+            
+            for (let proj of recent) {
+                const storageKey = `project_data_${proj.id}`;
+                const savedStr = localStorage.getItem(storageKey);
+                if (!savedStr) continue;
+                
+                const parsed = JSON.parse(savedStr);
+                if (parsed.sync_status === 'pending' && parsed.data) {
+                    console.log(`Background syncing project ${proj.id}...`);
+                    try {
+                        const cloudData = {
+                            name: parsed.data.name || 'Unnamed Project',
+                            data: JSON.stringify(parsed.data)
+                        };
+
+                        try {
+                            await databases.getDocument(
+                                APPWRITE_CONFIG.databaseId,
+                                APPWRITE_CONFIG.collectionId,
+                                proj.id
+                            );
+                            await databases.updateDocument(
+                                APPWRITE_CONFIG.databaseId,
+                                APPWRITE_CONFIG.collectionId,
+                                proj.id,
+                                cloudData
+                            );
+                        } catch (e) {
+                            await databases.createDocument(
+                                APPWRITE_CONFIG.databaseId,
+                                APPWRITE_CONFIG.collectionId,
+                                proj.id,
+                                { ...cloudData, userId: userId }
+                            );
+                        }
+                        
+                        parsed.sync_status = 'synced';
+                        localStorage.setItem(storageKey, JSON.stringify(parsed));
+                        console.log(`Successfully synced project ${proj.id}`);
+                    } catch (e) {
+                        console.error(`Background sync failed for ${proj.id}`, e);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error in syncPendingProjects", e);
         }
     }
 };

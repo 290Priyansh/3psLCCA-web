@@ -179,15 +179,16 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProjec
 
             <Nav className="ms-auto align-items-center column-gap-2 flex-row flex-wrap mt-2 mt-lg-0">
                 <div className="d-flex align-items-center me-2" style={{ 
-                    color: saveState === 'error' ? 'var(--bs-danger)' : (saveState === 'saving' ? 'var(--bs-warning)' : 'var(--app-primary-accent)'), 
+                    color: saveState === 'error' ? 'var(--bs-danger)' : (saveState === 'saving' ? 'var(--bs-warning)' : (saveState === 'offline' ? 'var(--app-text-muted)' : 'var(--app-primary-accent)')), 
                     fontSize: '12px', 
                     opacity: 0.9 
                 }}>
                     {saveState === 'saving' && <Spinner size="sm" animation="border" className="me-1" style={{ width: '12px', height: '12px', borderWidth: '0.15em' }} />}
                     {saveState === 'saved' && <FaCheckCircle size={12} className="me-1" />}
+                    {saveState === 'offline' && <FaCheckCircle size={12} className="me-1" />}
                     {saveState === 'error' && <FaExclamationTriangle size={12} className="me-1" />}
                     <span>
-                        {saveState === 'saving' ? 'Saving...' : (saveState === 'error' ? 'Save failed - retry' : 'All changes saved')}
+                        {saveState === 'saving' ? 'Saving...' : (saveState === 'error' ? 'Save failed - retry' : (saveState === 'offline' ? 'Saved Locally (Offline)' : 'All changes saved'))}
                     </span>
                 </div>
                 

@@ -503,7 +503,6 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
                     <Button 
                         variant="outline-secondary" 
                         onClick={() => fileInputRef.current.click()}
-                        disabled={isLocked}
                         style={{ borderColor: 'var(--app-border-mid)', color: 'var(--app-text-primary)' }}
                     >
                         <FaFileUpload className="me-2" /> {uploadedResults ? "Change File" : "Choose File"}
@@ -533,13 +532,13 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
 
             <Button 
                 className="w-100 mt-4 py-2" 
-                disabled={isLocked || (!uploadedResults && !projectInputs?.bridge_data?.bridge_name)}
+                disabled={!uploadedResults && !projectInputs?.bridge_data?.bridge_name}
                 style={{ 
                     backgroundColor: 'var(--app-primary-accent)', 
                     border: 'none', 
                     color: '#000', 
                     fontWeight: 'bold', 
-                    opacity: (isLocked || (!uploadedResults && !projectInputs?.bridge_data?.bridge_name)) ? 0.5 : 1 
+                    opacity: (!uploadedResults && !projectInputs?.bridge_data?.bridge_name) ? 0.5 : 1 
                 }}
                 onClick={handleProceed}
             >
@@ -583,8 +582,8 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
                     <Button 
                         variant="outline-primary" 
                         onClick={handleDownloadReport} 
-                        disabled={isLocked || isGeneratingPdf}
-                        style={{ borderColor: 'var(--app-primary-accent)', color: 'var(--app-primary-accent)', opacity: (isLocked || isGeneratingPdf) ? 0.5 : 1 }}
+                        disabled={isGeneratingPdf}
+                        style={{ borderColor: 'var(--app-primary-accent)', color: 'var(--app-primary-accent)', opacity: isGeneratingPdf ? 0.5 : 1 }}
                     >
                         {isGeneratingPdf ? (
                             <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Generating...</>
@@ -725,7 +724,6 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
                 <Button 
                     variant="outline-secondary" 
                     className="mt-4" 
-                    disabled={isLocked}
                     style={{ color: 'var(--app-text-secondary)', borderColor: 'var(--app-border-mid)' }}
                     onClick={() => setView('validation')}
                 >
@@ -739,38 +737,7 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
         <div style={{ minHeight: '100%', backgroundColor: 'var(--app-bg-main)', position: 'relative' }}>
             <style>{`
                 .custom-output-table td { border-bottom: 1px solid var(--app-border-light) !important; }
-                .lock-overlay {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background-color: rgba(0,0,0,0.05);
-                    z-index: 10;
-                    cursor: not-allowed;
-                    display: flex;
-                    justify-content: center;
-                    align-items: flex-start;
-                    padding-top: 100px;
-                }
             `}</style>
-            {isLocked && (
-                <div className="lock-overlay">
-                    <div className="d-flex align-items-center" style={{ 
-                        backgroundColor: 'var(--app-bg-card)', 
-                        border: '2px solid var(--app-primary-accent)', 
-                        color: 'var(--app-primary-accent)', 
-                        padding: '12px 24px', 
-                        borderRadius: '8px',
-                        fontWeight: 'bold',
-                        fontSize: '1rem',
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                        gap: '10px'
-                    }}>
-                        <FaExclamationTriangle /> PROJECT LOCKED - READ ONLY MODE
-                    </div>
-                </div>
-            )}
             {view === 'validation' ? renderValidation() : renderResults()}
             
             <ReportSectionModal 
