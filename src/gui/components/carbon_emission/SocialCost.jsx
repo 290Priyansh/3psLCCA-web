@@ -33,6 +33,16 @@ const RICKE_SCC_TABLE = {
 
 const NITI_SCC_INR = 6.3936;
 
+const calculateScc = ({ mode, inrRate, usdRate, ssp, rcp, customScc }) => {
+    if (mode === MODES.NITI) return NITI_SCC_INR * inrRate;
+    if (mode === MODES.RICKE) {
+        const key = `${ssp}|${rcp}`;
+        const baseUsd = RICKE_SCC_TABLE[key] || 0.1;
+        return baseUsd * usdRate;
+    }
+    return customScc;
+};
+
 const CustomDropdown = ({ value, options, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -113,28 +123,36 @@ const SocialCost = ({ controller }) => {
     }, [projectData]);
 
     const currentScc = useMemo(() => {
-        if (mode === MODES.NITI) return NITI_SCC_INR * inrRate;
-        if (mode === MODES.RICKE) {
-            const key = `${ssp}|${rcp}`;
-            const baseUsd = RICKE_SCC_TABLE[key] || 0.1;
-            return baseUsd * usdRate;
-        }
-        return customScc;
+        return calculateScc({ mode, inrRate, usdRate, ssp, rcp, customScc });
     }, [mode, inrRate, usdRate, ssp, rcp, customScc]);
 
     const saveChanges = (updates) => {
         const prev = projectData.carbon_emission_data || {};
+        const nextValues = {
+            mode,
+            inrRate: updates.inr_rate ?? inrRate,
+            usdRate: updates.usd_rate ?? usdRate,
+            ssp: updates.ssp ?? ssp,
+            rcp: updates.rcp ?? rcp,
+            customScc: updates.custom_scc ?? customScc,
+        };
+        nextValues.mode = updates.mode ?? nextValues.mode;
+        const nextScc = calculateScc(nextValues);
         updateProjectData('carbon_emission_data', {
             ...prev,
             social_cost_data: {
-                mode,
-                inr_rate: inrRate,
-                usd_rate: usdRate,
-                ssp,
-                rcp,
-                custom_scc: customScc,
-                calculated_scc_local: currentScc,
+                mode: nextValues.mode,
+                inr_rate: nextValues.inrRate,
+                usd_rate: nextValues.usdRate,
+                ssp: nextValues.ssp,
+                rcp: nextValues.rcp,
+                custom_scc: nextValues.customScc,
+                calculated_scc_local: nextScc,
+                cost_of_carbon_local: nextScc,
                 currency,
+                result: {
+                    cost_of_carbon_local: nextScc,
+                },
                 ...updates
             }
         });

@@ -12,6 +12,8 @@ import { BREAKDOWN_STAGES, STAGE_DEFS, computeStagePillarTotals } from './breakd
 import { computeAllSummaries } from './lifecycleSummary';
 import { generateFullReport } from './reportGenerator';
 import ReportSectionModal from './ReportSectionModal';
+import { buildCalculationProjectInputs } from '../../../utils/projectDerivations';
+import { calculateLcca, getLccaApiBase } from '../../../lib/lccaApi';
 
 const D3PieChart = ({ data }) => {
     const svgRef = useRef();
@@ -260,74 +262,21 @@ const D3BarChart = ({ data }) => {
     );
 };
 
-import { runLccaCalculation } from './calculationEngine';
-
 const Outputs = ({ addLog, isLocked, navTrigger }) => {
-    const { projectData } = useProjectData();
+    const { projectData, updateProjectData } = useProjectData();
 
-    // Helper to calculate totals from structured section list (Foundation, Sub, Super, Misc)
-    const getSectionsTotal = (sections) => {
-        if (!sections || !Array.isArray(sections)) return 0;
-        return sections.reduce((sum, sec) => {
-            if (!sec.rows || !Array.isArray(sec.rows)) return sum;
-            return sum + sec.rows.reduce((s, r) => s + (parseFloat(r.rate) || 0) * (parseFloat(r.qty) || 0), 0);
-        }, 0);
-    };
-
-    // Helper to calculate scrap value from Recycling included list
-    const getRecyclingTotal = (recyclingData) => {
-        if (!recyclingData || !recyclingData.included || !Array.isArray(recyclingData.included)) return 0;
-        return recyclingData.included.reduce((sum, item) => {
-            const val = parseFloat(String(item.recoveredValue).replace(/,/g, '')) || 0;
-            return sum + val;
-        }, 0);
-    };
-
-    // Dynamically derive projectInputs from context
-    const derivedProjectInputs = React.useMemo(() => {
-        if (!projectData) return null;
-        
-        const construction_work_data = {
-            "Foundation": { total: getSectionsTotal(projectData.foundation_data) },
-            "Sub Structure": { total: getSectionsTotal(projectData.substructure_data) },
-            "Super Structure": { total: getSectionsTotal(projectData.superstructure_data) },
-            "Miscellaneous": { total: getSectionsTotal(projectData.miscellaneous_data) },
-            grand_total: getSectionsTotal(projectData.foundation_data) +
-                        getSectionsTotal(projectData.substructure_data) +
-                        getSectionsTotal(projectData.superstructure_data) +
-                        getSectionsTotal(projectData.miscellaneous_data)
-        };
-
-        const recycling_data = {
-            ...projectData.recycling_data,
-            total_recovered_value: getRecyclingTotal(projectData.recycling_data)
-        };
-
-        const demolition_data = {
-            ...projectData.demolition_data,
-            demolition_cost_pct: parseFloat(projectData.demolition_data?.demolition_cost) || 0
-        };
-
-        return {
-            bridge_data: projectData.bridge_data || {},
-            financial_data: projectData.financial_data || {},
-            traffic_data: projectData.traffic_data || {},
-            construction_work_data,
-            carbon_emission_data: projectData.carbon_emission_data || {},
-            maintenance_data: projectData.maintenance_repair_data || {},
-            demolition_data,
-            recycling_data
-        };
+    const projectInputs = React.useMemo(() => {
+        return projectData ? buildCalculationProjectInputs(projectData) : null;
     }, [projectData]);
-
-    const projectInputs = derivedProjectInputs;
 
     const [view, setView] = useState('validation'); // 'validation' or 'results'
     const [analysisPeriod, setAnalysisPeriod] = useState(100);
     const [uploadedResults, setUploadedResults] = useState(null);
+    const [calculationResults, setCalculationResults] = useState(() => projectData?.outputs_data?.results || null);
     const [fileError, setFileError] = useState(null);
     const [computedData, setComputedData] = useState(null);
     const [uploadedFileName, setUploadedFileName] = useState(null);
+    const [isCalculating, setIsCalculating] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
@@ -343,8 +292,7 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
         }
     }, [projectData?.bridge_data?.design_life]);
 
-    // Use live data if no file is uploaded
-    const resultsToUse = uploadedResults || (projectInputs && runLccaCalculation(projectInputs));
+    const resultsToUse = uploadedResults || calculationResults;
 
     const decodeLcca = (uint8) => {
         // Check for "LCCA" magic header
@@ -370,13 +318,13 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
     }, [navTrigger]);
 
     useEffect(() => {
-        // Process either uploaded results or live inputs to ensure summary data is available
-        const dataToProcess = uploadedResults || (projectInputs ? runLccaCalculation(projectInputs) : null);
-        if (dataToProcess) {
-            const summaries = computeAllSummaries(dataToProcess);
+        if (resultsToUse) {
+            const summaries = computeAllSummaries(resultsToUse);
             setComputedData(summaries);
+        } else {
+            setComputedData(null);
         }
-    }, [projectInputs, uploadedResults]);
+    }, [resultsToUse]);
 
     const handleFileUpload = async (event) => {
         const file = event.target.files[0];
@@ -437,23 +385,58 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
         reader.readAsArrayBuffer(file);
     };
 
-    const handleProceed = () => {
+    const handleProceed = async () => {
         if (!uploadedResults && (!projectInputs || !projectInputs.bridge_data?.bridge_name)) {
             setFileError("Please enter project data or upload a .3psLCCA archive first.");
             return;
         }
 
-        addLog("Running LCCA calculation engine...");
-        
-        // Ensure data is fresh
-        const results = uploadedResults || runLccaCalculation(projectInputs);
-        const summaries = computeAllSummaries(results);
-        setComputedData(summaries);
+        if (uploadedResults) {
+            const summaries = computeAllSummaries(uploadedResults);
+            setComputedData(summaries);
+            setView('results');
+            addLog("Uploaded calculation results loaded.");
+            return;
+        }
 
-        setTimeout(() => {
+        setIsCalculating(true);
+        setFileError(null);
+        addLog(`Running LCCA calculation through backend (${getLccaApiBase()})...`);
+
+        try {
+            const response = await calculateLcca({
+                project: projectInputs,
+                analysisPeriodYears: analysisPeriod,
+                debug: false,
+            });
+
+            if (response.status !== 'success') {
+                const errors = response.validation?.errors || ['Backend calculation failed.'];
+                setFileError(errors.join(' '));
+                addLog(`Calculation failed: ${errors.join(' ')}`);
+                return;
+            }
+
+            const summaries = computeAllSummaries(response.results);
+            setCalculationResults(response.results);
+            setComputedData(summaries);
+            updateProjectData('outputs_data', {
+                results: response.results,
+                computed: response.computed || {},
+                validation: response.validation || { errors: [], warnings: [] },
+                analysis_period_years: analysisPeriod,
+                calculated_at: new Date().toISOString(),
+                source: 'backend',
+            });
             setView('results');
             addLog("Calculation completed successfully.");
-        }, 800);
+        } catch (err) {
+            const message = `Backend unavailable or failed: ${err.message}`;
+            setFileError(message);
+            addLog(message);
+        } finally {
+            setIsCalculating(false);
+        }
     };
 
     const handleDownloadReport = () => {
@@ -472,8 +455,10 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
         addLog("Preparing professional LCCA report...");
         try {
             const charts = [pieChartRef, barChartRef];
-            // Use resultsToUse which correctly handles both uploaded and live calculated results
             const resultsForReport = resultsToUse;
+            if (!resultsForReport) {
+                throw new Error("Calculation results are not ready. Please run the backend calculation first.");
+            }
             
             await generateFullReport(
                 projectInputs, 
@@ -532,17 +517,17 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
 
             <Button 
                 className="w-100 mt-4 py-2" 
-                disabled={!uploadedResults && !projectInputs?.bridge_data?.bridge_name}
+                disabled={isCalculating || (!uploadedResults && !projectInputs?.bridge_data?.bridge_name)}
                 style={{ 
                     backgroundColor: 'var(--app-primary-accent)', 
                     border: 'none', 
                     color: '#000', 
                     fontWeight: 'bold', 
-                    opacity: (!uploadedResults && !projectInputs?.bridge_data?.bridge_name) ? 0.5 : 1 
+                    opacity: (isCalculating || (!uploadedResults && !projectInputs?.bridge_data?.bridge_name)) ? 0.5 : 1 
                 }}
                 onClick={handleProceed}
             >
-                Proceed with Calculation ▸
+                {isCalculating ? 'Calculating...' : 'Proceed with Calculation ▸'}
             </Button>
         </div>
     );

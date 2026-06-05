@@ -57,15 +57,48 @@ const MaterialEmissions = ({ controller }) => {
         saveToEngine(newSet);
     };
 
-    const saveToEngine = (newExcludedSet) => {
+    const buildMaterialData = (newExcludedSet) => {
         const excludedList = Array.from(newExcludedSet);
+        const rows = materials.map(m => ({
+            id: m.id,
+            name: m.name,
+            category: m.category,
+            component: m.component,
+            quantity: m.quantity,
+            unit: m.unit,
+            conversion_factor: m.cf,
+            emission_factor: m.ef,
+            total_kgCO2e: m.quantity * m.cf * m.ef,
+            included: !newExcludedSet.has(m.id),
+        }));
+        const includedRows = rows.filter(row => row.included);
+        const calculatedCategoryTotals = includedRows.reduce((acc, row) => {
+            acc[row.category] = (acc[row.category] || 0) + row.total_kgCO2e;
+            return acc;
+        }, {
+            Foundation: 0,
+            'Sub Structure': 0,
+            'Super Structure': 0,
+            Miscellaneous: 0,
+        });
+
+        return {
+            excluded_ids: excludedList,
+            rows,
+            category_totals: calculatedCategoryTotals,
+            total_kgCO2e: includedRows.reduce((sum, row) => sum + row.total_kgCO2e, 0),
+        };
+    };
+
+    const saveToEngine = (newExcludedSet) => {
         const prev = projectData.carbon_emission_data || {};
+        const nextMaterialData = {
+            ...(prev.material_emissions_data || {}),
+            ...buildMaterialData(newExcludedSet),
+        };
         updateProjectData('carbon_emission_data', {
             ...prev,
-            material_emissions_data: {
-                ...(prev.material_emissions_data || {}),
-                excluded_ids: excludedList
-            }
+            material_emissions_data: nextMaterialData,
         });
     };
 
@@ -83,6 +116,20 @@ const MaterialEmissions = ({ controller }) => {
     const totalCarbon = useMemo(() => {
         return Object.values(categoryTotals).reduce((sum, v) => sum + v, 0);
     }, [categoryTotals]);
+
+    useEffect(() => {
+        const prev = projectData.carbon_emission_data || {};
+        const nextMaterialData = {
+            ...(prev.material_emissions_data || {}),
+            ...buildMaterialData(excludedIds),
+        };
+        if (JSON.stringify(prev.material_emissions_data || {}) === JSON.stringify(nextMaterialData)) return;
+
+        updateProjectData('carbon_emission_data', {
+            ...prev,
+            material_emissions_data: nextMaterialData,
+        });
+    }, [materials, excludedIds, updateProjectData]);
 
     const { included, excluded } = useMemo(() => {
         const filtered = materials.filter(m => 

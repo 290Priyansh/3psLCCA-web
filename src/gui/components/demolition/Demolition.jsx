@@ -162,7 +162,11 @@ const Demolition = ({ controller, engine }) => {
     });
 
     useEffect(() => {
-        updateProjectData('demolition_data', form);
+        updateProjectData('demolition_data', {
+            ...form,
+            demolition_cost_pct: parseFloat(form.demolition_cost) || 0,
+            demolition_carbon_cost_pct: parseFloat(form.demolition_carbon_cost) || 0,
+        });
     }, [form, updateProjectData]);
 
     const [errors, setErrors] = useState(new Set());

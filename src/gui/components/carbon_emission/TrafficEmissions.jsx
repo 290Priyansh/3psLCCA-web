@@ -49,17 +49,21 @@ const TrafficEmissions = ({ controller }) => {
         const totalPerDay = newMode === 'calculate' ? 
             VEHICLE_TYPES.reduce((sum, v) => sum + ((aadt[v.key] || 0) * km * (f[v.key] || 0)), 0) :
             direct;
+        const desktopMode = newMode === 'calculate' ? 'Calculate by Vehicle' : 'Enter Directly';
 
         const prev = projectData.carbon_emission_data || {};
         updateProjectData('carbon_emission_data', {
             ...prev,
             diversion_emissions_data: {
                 mode: newMode,
+                calculation_mode: desktopMode,
                 reroute_km: km,
                 factors: f,
                 direct_value: direct,
                 remarks: rem,
-                total_kgCO2e_per_day: totalPerDay
+                total_kgCO2e_per_day: totalPerDay,
+                total_calculated_emissions: newMode === 'calculate' ? totalPerDay : 0,
+                total_direct_emissions: newMode === 'direct' ? totalPerDay : 0,
             }
         });
     };
@@ -75,6 +79,31 @@ const TrafficEmissions = ({ controller }) => {
     const calculatedTotal = useMemo(() => {
         return VEHICLE_TYPES.reduce((sum, v) => sum + ((aadt[v.key] || 0) * rerouteKm * (factors[v.key] || 0)), 0);
     }, [aadt, rerouteKm, factors]);
+
+    useEffect(() => {
+        const totalPerDay = mode === 'calculate' ? calculatedTotal : directValue;
+        const desktopMode = mode === 'calculate' ? 'Calculate by Vehicle' : 'Enter Directly';
+        const prev = projectData.carbon_emission_data || {};
+        const previousDiversion = prev.diversion_emissions_data || {};
+        const nextDiversion = {
+            ...previousDiversion,
+            mode,
+            calculation_mode: desktopMode,
+            reroute_km: rerouteKm,
+            factors,
+            direct_value: directValue,
+            remarks,
+            total_kgCO2e_per_day: totalPerDay,
+            total_calculated_emissions: mode === 'calculate' ? totalPerDay : 0,
+            total_direct_emissions: mode === 'direct' ? totalPerDay : 0,
+        };
+        if (JSON.stringify(previousDiversion) === JSON.stringify(nextDiversion)) return;
+
+        updateProjectData('carbon_emission_data', {
+            ...prev,
+            diversion_emissions_data: nextDiversion,
+        });
+    }, [mode, rerouteKm, factors, directValue, remarks, calculatedTotal, updateProjectData]);
 
     return (
         <div className="traffic-emissions d-flex flex-column text-light ps-3 pe-3 pt-3" style={{ backgroundColor: 'var(--app-bg-main)', color: 'var(--app-text-primary)', fontFamily: '"Segoe UI", sans-serif' }}>

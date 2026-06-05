@@ -36,10 +36,6 @@ const Recycling = () => {
     });
     const [editingItem, setEditingItem] = useState(null);
 
-    useEffect(() => {
-        updateProjectData('recycling_data', { included, excluded });
-    }, [included, excluded, updateProjectData]);
-
     const handleEdit = (item) => {
         setEditingItem(item);
     };
@@ -83,6 +79,14 @@ const Recycling = () => {
         const val = parseFloat(String(item.recoveredValue).replace(/,/g, '')) || 0;
         return sum + val;
     }, 0);
+
+    useEffect(() => {
+        updateProjectData('recycling_data', {
+            included,
+            excluded,
+            total_recovered_value: totalRecoveredValue,
+        });
+    }, [included, excluded, totalRecoveredValue, updateProjectData]);
 
     return (
         <div className="h-100 d-flex flex-column overflow-hidden" style={{ backgroundColor: 'var(--app-bg-main)', color: 'var(--app-text-primary)' }}>

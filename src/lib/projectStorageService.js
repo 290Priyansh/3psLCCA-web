@@ -1,4 +1,5 @@
 import { databases, APPWRITE_CONFIG, ID, Query, account } from './appwrite';
+import { normalizeProjectData } from '../utils/projectSchema';
 
 /**
  * Helper to get the current Appwrite user ID if logged in
@@ -22,14 +23,15 @@ export const projectStorageService = {
     async saveProject(projectId, projectData) {
         const isGuest = sessionStorage.getItem('isGuest') === 'true';
         const now = Date.now();
-        
-        // Inject timestamp so it gets saved in both local and cloud
-        projectData._lastModified = now;
+        const normalizedProject = normalizeProjectData({
+            ...projectData,
+            _lastModified: now,
+        });
 
         // 1. Always Save Locally First
         const storageKey = `project_data_${projectId}`;
         const localWrapper = {
-            data: projectData,
+            data: normalizedProject,
             sync_status: isGuest ? 'synced' : 'pending'
         };
         localStorage.setItem(storageKey, JSON.stringify(localWrapper));
@@ -38,12 +40,12 @@ export const projectStorageService = {
         let recent = JSON.parse(localStorage.getItem('recentProjects') || '[]');
         const index = recent.findIndex(p => p.id === projectId);
         if (index > -1) {
-            recent[index].name = projectData.name || recent[index].name;
+            recent[index].name = normalizedProject.name || recent[index].name;
             recent[index].date = new Date(now).toLocaleDateString();
         } else {
             recent.push({
                 id: projectId,
-                name: projectData.name || 'Unnamed Project',
+                name: normalizedProject.name || 'Unnamed Project',
                 date: new Date(now).toLocaleDateString()
             });
         }
@@ -56,8 +58,8 @@ export const projectStorageService = {
                 if (!userId) throw new Error("Not logged in");
 
                 const cloudData = {
-                    name: projectData.name || 'Unnamed Project',
-                    data: JSON.stringify(projectData)
+                    name: normalizedProject.name || 'Unnamed Project',
+                    data: JSON.stringify(normalizedProject)
                 };
 
                 try {
@@ -103,9 +105,9 @@ export const projectStorageService = {
         if (savedStr) {
             const parsed = JSON.parse(savedStr);
             if (parsed.sync_status && parsed.data) {
-                localData = parsed.data;
+                localData = normalizeProjectData(parsed.data);
             } else {
-                localData = parsed;
+                localData = normalizeProjectData(parsed);
             }
         }
 
@@ -118,7 +120,7 @@ export const projectStorageService = {
                     APPWRITE_CONFIG.collectionId,
                     projectId
                 );
-                const cloudData = JSON.parse(doc.data);
+                const cloudData = normalizeProjectData(JSON.parse(doc.data));
                 
                 // Conflict resolution: Last Write Wins
                 const cloudTime = cloudData._lastModified || 0;
@@ -217,9 +219,10 @@ export const projectStorageService = {
                 if (parsed.sync_status === 'pending' && parsed.data) {
                     console.log(`Background syncing project ${proj.id}...`);
                     try {
+                        const normalizedProject = normalizeProjectData(parsed.data);
                         const cloudData = {
-                            name: parsed.data.name || 'Unnamed Project',
-                            data: JSON.stringify(parsed.data)
+                            name: normalizedProject.name || 'Unnamed Project',
+                            data: JSON.stringify(normalizedProject)
                         };
 
                         try {
@@ -243,6 +246,7 @@ export const projectStorageService = {
                             );
                         }
                         
+                        parsed.data = normalizedProject;
                         parsed.sync_status = 'synced';
                         localStorage.setItem(storageKey, JSON.stringify(parsed));
                         console.log(`Successfully synced project ${proj.id}`);

@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 
 const EditRecyclabilityModal = ({ show, onClose, item, onSave }) => {
-    if (!show) return null;
-
     const [formData, setFormData] = useState({
         materialName: item?.material || 'Steel Rebar (Fe500)',
         itemId: '',
@@ -20,6 +18,28 @@ const EditRecyclabilityModal = ({ show, onClose, item, onSave }) => {
         grade: '',
         type: ''
     });
+
+    useEffect(() => {
+        if (!show) return;
+        setFormData({
+            materialName: item?.material || 'Steel Rebar (Fe500)',
+            itemId: item?.itemId || '',
+            quantityValue: item?.quantityValue || item?.qtyValue || '2.102',
+            quantityUnit: item?.quantityUnit || item?.qtyUnit || 'm - Metre',
+            rateCost: item?.rateCost || '88341.0',
+            rateSource: item?.rateSource || '',
+            emissionFactor: item?.emissionFactor || '2.6',
+            perUnit: item?.perUnit || 'kg - Kilogram',
+            emissionSource: item?.emissionSource || '',
+            conversionFactor: item?.conversionFactor || '1000.0',
+            scrapRate: item?.scrapRate || '32500.000',
+            recoveryPercent: item?.recoveryPercent || item?.recyclability || '75.000',
+            grade: item?.grade || '',
+            type: item?.type || ''
+        });
+    }, [show, item]);
+
+    if (!show) return null;
 
     const handleChange = (e) => {
         const { name, value } = e.target;

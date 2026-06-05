@@ -15,7 +15,8 @@ import Recycling from './gui/components/recycling/Recycling'
 import Demolition from './gui/components/demolition/Demolition'
 import Outputs from './gui/components/outputs/Outputs'
 import { ProjectDataProvider } from './contexts/ProjectDataContext'
-import { buildProjectFromCreation, backfillGeneralInfo } from './utils/projectCreation'
+import { buildProjectFromCreation } from './utils/projectCreation'
+import { createDefaultProject, normalizeProjectData } from './utils/projectSchema'
 import { account, ID } from './lib/appwrite'
 import { projectStorageService } from './lib/projectStorageService'
 import './App.css'
@@ -42,9 +43,10 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
         const saved = await projectStorageService.loadProject(projectId);
         if (saved) {
           try {
+            const normalizedSaved = normalizeProjectData(saved);
             // Only update if it's different to avoid loops if navigate is used
-            if (JSON.stringify(saved) !== JSON.stringify(projectData)) {
-              setProjectData(backfillGeneralInfo(saved));
+            if (JSON.stringify(normalizedSaved) !== JSON.stringify(projectData)) {
+              setProjectData(normalizedSaved);
             }
           } catch (e) {
             console.error("Error parsing saved project data", e);
@@ -81,7 +83,7 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
       if (projectId && projectData) {
         const storageKey = `project_data_${projectId}`;
         const localWrapper = {
-            data: { ...projectData, _lastModified: Date.now() },
+            data: normalizeProjectData({ ...projectData, _lastModified: Date.now() }),
             sync_status: sessionStorage.getItem('isGuest') === 'true' ? 'synced' : 'pending'
         };
         localStorage.setItem(storageKey, JSON.stringify(localWrapper));
@@ -94,7 +96,8 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
   const updateProjectData = (section, data) => {
     setProjectData(prev => ({
       ...prev,
-      [section]: data
+      [section]: data,
+      ...(section === 'maintenance_repair_data' ? { maintenance_data: data } : {})
     }))
   }
 
@@ -118,7 +121,7 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
   const handleOpenProject = (data) => {
     const openProjectId = data?.id || 'opened_project';
     const raw = data.project || data;
-    setProjectData(backfillGeneralInfo(raw))
+    setProjectData(normalizeProjectData(raw))
 
     if (data.logs) {
       setLogs(data.logs)
@@ -152,7 +155,7 @@ function ProjectViewWrapper({ projectData, setProjectData, logs, setLogs, isLock
     if (!projectData) return;
 
     const exportData = {
-      project: projectData,
+      project: normalizeProjectData(projectData),
 
       logs: logs,
       exportedAt: new Date().toISOString()
@@ -260,17 +263,7 @@ function App() {
   const navigate = useNavigate();
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => sessionStorage.getItem('isLoggedIn') === 'true')
-  const [projectData, setProjectData] = useState({
-    name: 'Bridge_Assessment_01',
-    bridge_data: {},
-    financial_data: {},
-    traffic_data: {},
-    construction_work_data: { "Super Structure": { total: 0 }, "grand_total": 0 },
-    carbon_emission_data: {},
-    maintenance_data: {},
-    demolition_data: {},
-    recycling_data: {}
-  })
+  const [projectData, setProjectData] = useState(() => createDefaultProject())
 
   const [logs, setLogs] = useState(() => {
     const saved = localStorage.getItem('logs')
@@ -537,12 +530,12 @@ function App() {
     const saved = await projectStorageService.loadProject(projectId);
     if (saved) {
       try {
-        setProjectData(backfillGeneralInfo(saved));
+        setProjectData(normalizeProjectData(saved));
       } catch (e) {
         console.error('Failed to load project', e);
       }
     } else if (projectName) {
-      setProjectData(prev => backfillGeneralInfo({ ...prev, name: projectName }));
+      setProjectData(prev => normalizeProjectData({ ...prev, name: projectName }));
     }
     navigate(`/project/${projectId}/General Information`);
     addLog(`Project '${projectName}' opened successfully.`);
