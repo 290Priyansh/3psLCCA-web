@@ -2,7 +2,10 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { data as countriesData } from '../utils/countriesdata';
 import { materialCatalog } from '../utils/materialCatalog';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
+import { Dropdown } from 'react-bootstrap';
 import { backfillGeneralInfo } from '../../../utils/projectCreation';
+import { getProfiles } from '../../utils/profileStorage';
+import ProfileAvatar from '../ProfileAvatar';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -16,13 +19,21 @@ const INITIAL_STATE = {
     project_code: '',
     project_description: '',
     remarks: '',
-    // Evaluating Agency
+    // Assessing Organisation
+    agency_logo: null,
     agency_name: '',
     contact_person: '',
     agency_address: '',
     agency_country: '',
     agency_email: '',
     agency_phone: '',
+    // Reviewer
+    reviewer_name: '',
+    reviewer_organization: '',
+    reviewer_address: '',
+    reviewer_country: '',
+    reviewer_email: '',
+    reviewer_phone: '',
     // Project Settings (read-only / locked — shown but not editable)
     project_country: '',
     project_currency: '',
@@ -37,11 +48,14 @@ const LOCKED_KEYS = new Set(['project_country', 'project_currency', 'unit_system
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SectionHeader({ title }) {
+function SectionHeader({ title, rightElement }) {
     return (
-        <h5 className="mb-4 fw-bold pb-2 mt-4" style={{ borderBottom: '1px solid var(--app-border-dark)', fontSize: '1rem', color: 'var(--app-text-primary)', transition: 'all 0.3s' }}>
-            {title}
-        </h5>
+        <div className="d-flex align-items-center justify-content-between mb-4 mt-4 pb-2" style={{ borderBottom: '1px solid var(--app-border-dark)' }}>
+            <h5 className="mb-0 fw-bold" style={{ fontSize: '1rem', color: 'var(--app-text-primary)' }}>
+                {title}
+            </h5>
+            {rightElement && <div>{rightElement}</div>}
+        </div>
     );
 }
 
@@ -246,12 +260,32 @@ const ProjectInformationPlaceholder = ({ controller }) => {
         const skipKeys = new Set([...LOCKED_KEYS, 'sor_database']);
         const next = { ...form };
         Object.keys(INITIAL_STATE).forEach((k) => {
-            if (!skipKeys.has(k)) next[k] = '';
+            if (!skipKeys.has(k)) {
+                next[k] = k === 'agency_logo' ? null : '';
+            }
         });
         setForm(next);
         setErrors(new Set());
         setValidationMsg('');
         controller?.engine?._log('General Info: All fields cleared.');
+    };
+
+    const handleLoadProfile = (profileName) => {
+        const profiles = getProfiles();
+        const profile = profiles[profileName];
+        if (profile) {
+            setForm(prev => ({
+                ...prev,
+                agency_logo: profile.agency_logo || null,
+                agency_name: profile.agency_name || '',
+                contact_person: profile.contact_person || '',
+                agency_address: profile.agency_address || '',
+                agency_country: profile.agency_country || '',
+                agency_email: profile.agency_email || '',
+                agency_phone: profile.agency_phone || '',
+            }));
+            controller?.engine?._log(`General Info: Loaded agency profile '${profileName}'.`);
+        }
     };
 
     // ── Validation ────────────────────────────────────────────────────────────
@@ -327,12 +361,66 @@ const ProjectInformationPlaceholder = ({ controller }) => {
                 hasError={hasError('remarks')}
             />
 
-            {/* ── Evaluating Agency ────────────────────────────────────────── */}
-            <SectionHeader title="Evaluating Agency" />
+            {/* ── Assessing Organisation ────────────────────────────────────────── */}
+            <SectionHeader 
+                title="Assessing Organisation" 
+                rightElement={
+                    <Dropdown align="end">
+                        <Dropdown.Toggle 
+                            variant="light" 
+                            size="sm" 
+                            style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', border: '1px solid var(--app-border-mid)', fontSize: '0.85rem' }}
+                        >
+                            Load Agency Profile
+                        </Dropdown.Toggle>
+                        <Dropdown.Menu style={{ backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)' }}>
+                            {Object.keys(getProfiles()).length > 0 ? (
+                                Object.keys(getProfiles()).map(name => (
+                                    <Dropdown.Item 
+                                        key={name} 
+                                        onClick={() => handleLoadProfile(name)}
+                                        style={{ color: 'var(--app-text-primary)' }}
+                                        onMouseEnter={(e) => { e.target.style.backgroundColor = 'var(--app-bg-alt)' }}
+                                        onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent' }}
+                                    >
+                                        {name}
+                                    </Dropdown.Item>
+                                ))
+                            ) : (
+                                <Dropdown.Item disabled style={{ color: 'var(--app-text-muted)' }}>
+                                    No profiles found
+                                </Dropdown.Item>
+                            )}
+                        </Dropdown.Menu>
+                    </Dropdown>
+                }
+            />
+
+            <TextField
+                id="contact_person"
+                label="Assessor's Name"
+                hint="Primary contact handling this project."
+                value={form.contact_person}
+                onChange={handleChange}
+                hasError={hasError('contact_person')}
+            />
+
+            <div className="mb-4">
+                <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)' }}>
+                    Organisation's Logo
+                </label>
+                <FieldHint text="Appears on the report cover page. PNG or JPG recommended." />
+                <ProfileAvatar 
+                    size={60} 
+                    profileName={form.agency_name || 'Agency'} 
+                    logoData={form.agency_logo} 
+                    onLogoChange={(base64) => handleChange('agency_logo', base64)} 
+                />
+            </div>
 
             <TextField
                 id="agency_name"
-                label="Agency Name"
+                label="Organisation's Name"
                 hint="Name of the organization responsible for this evaluation."
                 value={form.agency_name}
                 onChange={handleChange}
@@ -340,18 +428,9 @@ const ProjectInformationPlaceholder = ({ controller }) => {
             />
 
             <TextField
-                id="contact_person"
-                label="Contact Person"
-                hint="Primary contact handling this project."
-                value={form.contact_person}
-                onChange={handleChange}
-                hasError={hasError('contact_person')}
-            />
-
-            <TextField
                 id="agency_address"
-                label="Agency Address"
-                hint="Street address of the evaluating agency."
+                label="Organisation's Address"
+                hint="Appears in the report footer."
                 value={form.agency_address}
                 onChange={handleChange}
                 hasError={hasError('agency_address')}
@@ -360,7 +439,7 @@ const ProjectInformationPlaceholder = ({ controller }) => {
             <SelectField
                 id="agency_country"
                 label="Country"
-                hint="Country where the evaluating agency is based."
+                hint="Country where the evaluating agency is based. Used for report localisation."
                 options={COUNTRIES}
                 value={form.agency_country}
                 onChange={handleChange}
@@ -383,6 +462,64 @@ const ProjectInformationPlaceholder = ({ controller }) => {
                 value={form.agency_phone}
                 onChange={handleChange}
                 hasError={hasError('agency_phone')}
+            />
+
+            {/* ── Reviewer ────────────────────────────────────────────────────── */}
+            <SectionHeader title="Reviewer" />
+
+            <TextField
+                id="reviewer_name"
+                label="Reviewer's Name"
+                hint=""
+                value={form.reviewer_name}
+                onChange={handleChange}
+                hasError={hasError('reviewer_name')}
+            />
+
+            <TextField
+                id="reviewer_organization"
+                label="Reviewer's Organisation"
+                hint=""
+                value={form.reviewer_organization}
+                onChange={handleChange}
+                hasError={hasError('reviewer_organization')}
+            />
+
+            <TextField
+                id="reviewer_address"
+                label="Reviewer's Address"
+                hint=""
+                value={form.reviewer_address}
+                onChange={handleChange}
+                hasError={hasError('reviewer_address')}
+            />
+
+            <SelectField
+                id="reviewer_country"
+                label="Country"
+                hint="Country where the reviewing agency is located."
+                options={COUNTRIES}
+                value={form.reviewer_country}
+                onChange={handleChange}
+                hasError={hasError('reviewer_country')}
+            />
+
+            <TextField
+                id="reviewer_email"
+                label="Email"
+                hint=""
+                value={form.reviewer_email}
+                onChange={handleChange}
+                hasError={hasError('reviewer_email')}
+            />
+
+            <PhoneField
+                id="reviewer_phone"
+                label="Phone"
+                hint=""
+                value={form.reviewer_phone}
+                onChange={handleChange}
+                hasError={hasError('reviewer_phone')}
             />
 
             {/* ── Project Settings (locked, read-only) ─────────────────────── */}
