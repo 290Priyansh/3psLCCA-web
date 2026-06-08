@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { data as countriesData } from '../utils/countriesdata';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
+import { normalizeBridgeData, validateBridgeData } from '../../../utils/projectPageSchema';
 import './BridgeData.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -204,10 +205,15 @@ const BridgeData = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [form, setForm] = useState(() => {
         const saved = projectData.bridge_data;
-        return (saved && Object.keys(saved).length > 0) ? saved : INITIAL_STATE;
+        return normalizeBridgeData((saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE);
     });
     const [errors, setErrors] = useState(new Set());
     const [validationMsg, setValidationMsg] = useState('');
+
+    useEffect(() => {
+        const next = normalizeBridgeData({ ...INITIAL_STATE, ...(projectData.bridge_data || {}) });
+        setForm(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
+    }, [projectData.bridge_data]);
 
 
     // Sync form to context whenever it changes (updateProjectData is stable via useCallback)
@@ -240,24 +246,18 @@ const BridgeData = ({ controller }) => {
     // ── Validation ───────────────────────────────────────────────────────────────
 
     const validate = () => {
+        const messages = validateBridgeData(form);
         const newErrors = new Set();
-        const missing = [];
-
         REQUIRED_KEYS.forEach((key) => {
-            const val = form[key];
-            const isEmpty = val === '' || val === null || val === undefined;
-            if (isEmpty) {
-                newErrors.add(key);
-                missing.push(key.replace(/_/g, ' '));
-            }
+            if (messages.some((message) => message.includes(key.replace(/_/g, ' ')))) newErrors.add(key);
         });
 
         setErrors(newErrors);
         if (newErrors.size > 0) {
-            const msg = `Missing required bridge data: ${missing.join(', ')}`;
+            const msg = `Bridge data needs attention: ${messages.join(' ')}`;
             setValidationMsg(msg);
             controller?.engine?._log(msg);
-            return { valid: false, errors: missing };
+            return { valid: false, errors: messages };
         }
 
         setValidationMsg('');

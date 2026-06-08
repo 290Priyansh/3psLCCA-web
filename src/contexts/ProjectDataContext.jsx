@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createDefaultProject, normalizeProjectData } from '../utils/projectSchema';
+import { normalizeProjectSection } from '../utils/projectPageSchema';
 
 const ProjectDataContext = createContext();
 
@@ -19,12 +20,13 @@ export const ProjectDataProvider = ({ children, projectId = 'default', initialDa
 
     const updateProjectData = useCallback((chunkName, data) => {
         setProjectData(prev => {
-            const next = { ...prev, [chunkName]: data };
+            const normalizedData = normalizeProjectSection(chunkName, data, prev);
+            const next = { ...prev, [chunkName]: normalizedData };
             if (chunkName === 'maintenance_repair_data') {
-                next.maintenance_data = data;
+                next.maintenance_data = normalizedData;
             }
-            if (chunkName === 'general_info' && data?.project_name && data.project_name !== prev.name) {
-                next.name = data.project_name;
+            if (chunkName === 'general_info' && normalizedData?.project_name && normalizedData.project_name !== prev.name) {
+                next.name = normalizedData.project_name;
             }
             return next;
         });

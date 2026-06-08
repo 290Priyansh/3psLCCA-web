@@ -1,4 +1,4 @@
-import { normalizeProjectData } from './projectSchema';
+import { normalizeProjectData } from './projectSchema.js';
 
 /**
  * Maps project-creation form fields to general_info schema.

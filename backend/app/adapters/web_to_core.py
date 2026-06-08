@@ -125,6 +125,17 @@ def _material_carbon_total(project: dict[str, Any]) -> float:
     return total_kg
 
 
+def _carbon_emissions_total(project: dict[str, Any]) -> float:
+    carbon = _as_dict(project.get("carbon_emission_data"))
+    transport = _as_dict(carbon.get("transport_emissions_data") or carbon.get("transportation_emissions_data"))
+    machinery = _as_dict(carbon.get("machinery_emissions_data"))
+    return (
+        _material_carbon_total(project)
+        + _num(transport.get("total_kgCO2e"))
+        + _num(machinery.get("total_kgCO2e"))
+    )
+
+
 def _recycling_total(project: dict[str, Any]) -> float:
     recycling = _as_dict(project.get("recycling_data"))
     total = _num(recycling.get("total_recovered_value"))
@@ -301,11 +312,11 @@ def prepare_for_core(project: dict[str, Any], analysis_period_years: int) -> Pre
     if construction["grand_total"] <= 0:
         errors.append("construction cost total is required. Fill Construction Work Data before calculating.")
 
-    material_kg = _material_carbon_total(project)
+    total_carbon_kg = _carbon_emissions_total(project)
     carbon = _as_dict(project.get("carbon_emission_data"))
     social = _as_dict(carbon.get("social_cost_data"))
     scc = _num(_as_dict(social.get("result")).get("cost_of_carbon_local") or social.get("cost_of_carbon_local") or social.get("calculated_scc_local"))
-    initial_carbon_cost = material_kg * scc
+    initial_carbon_cost = total_carbon_kg * scc
 
     general_parameters = _general_parameters(project, analysis_period_years, use_global)
     maintenance_stage = _maintenance_stage(project)
@@ -345,7 +356,7 @@ def prepare_for_core(project: dict[str, Any], analysis_period_years: int) -> Pre
 
     computed = {
         "construction": construction,
-        "material_emissions_kgCO2e": material_kg,
+        "total_initial_emissions_kgCO2e": total_carbon_kg,
         "initial_carbon_emissions_cost": initial_carbon_cost,
         "total_scrap_value": construction_costs["total_scrap_value"],
         "use_global_road_user_calculations": use_global,

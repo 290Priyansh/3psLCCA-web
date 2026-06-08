@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../../contexts/ProjectDataContext';
+import { normalizeConstructionSections } from '../../../../utils/projectPageSchema';
 import '../ConstructionWorkData.css';
 import MaterialTable from '../MaterialTable';
 
@@ -24,6 +25,8 @@ const DEFAULT_SECTIONS = [
     { id: 'pile-cap',   name: 'Pile Cap',   rows: [] },
 ];
 
+const defaultSections = () => normalizeConstructionSections(DEFAULT_SECTIONS, 'foundation');
+
 // (MaterialTable imported from shared component)
 
 // ── Foundation main component ─────────────────────────────────────────────────
@@ -32,8 +35,15 @@ const Foundation = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [sections, setSections] = useState(() => {
         const saved = projectData.foundation_data;
-        return (saved && saved.length > 0) ? saved : DEFAULT_SECTIONS;
+        return (saved && saved.length > 0) ? normalizeConstructionSections(saved, 'foundation') : defaultSections();
     });
+
+    useEffect(() => {
+        const next = projectData.foundation_data?.length
+            ? normalizeConstructionSections(projectData.foundation_data, 'foundation')
+            : defaultSections();
+        setSections(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
+    }, [projectData.foundation_data]);
 
     useEffect(() => {
         updateProjectData('foundation_data', sections);

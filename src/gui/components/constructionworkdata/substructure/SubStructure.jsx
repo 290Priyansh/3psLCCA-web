@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../../contexts/ProjectDataContext';
+import { normalizeConstructionSections } from '../../../../utils/projectPageSchema';
 import '../ConstructionWorkData.css';
 import MaterialTable from '../MaterialTable';
 
@@ -15,14 +16,23 @@ const DEFAULT_SECTIONS = [
     { id: 'bearing',   name: 'Bearing',   rows: [] },
 ];
 
+const defaultSections = () => normalizeConstructionSections(DEFAULT_SECTIONS, 'substructure');
+
 // MaterialTable imported from shared component
 
 const SubStructure = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [sections, setSections] = useState(() => {
         const saved = projectData.substructure_data;
-        return (saved && saved.length > 0) ? saved : DEFAULT_SECTIONS;
+        return (saved && saved.length > 0) ? normalizeConstructionSections(saved, 'substructure') : defaultSections();
     });
+
+    useEffect(() => {
+        const next = projectData.substructure_data?.length
+            ? normalizeConstructionSections(projectData.substructure_data, 'substructure')
+            : defaultSections();
+        setSections(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
+    }, [projectData.substructure_data]);
 
     useEffect(() => {
         updateProjectData('substructure_data', sections);

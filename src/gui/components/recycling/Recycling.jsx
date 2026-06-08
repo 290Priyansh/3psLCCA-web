@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
+import { normalizeRecyclingData } from '../../../utils/projectPageSchema';
 import EditRecyclabilityModal from './EditRecyclabilityModal';
 import { FaEdit, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
@@ -27,11 +28,11 @@ const EXCLUDED_DATA = [
 const Recycling = () => {
     const { projectData, updateProjectData } = useProjectData();
     const [included, setIncluded] = useState(() => {
-        const saved = projectData.recycling_data;
+        const saved = normalizeRecyclingData(projectData.recycling_data);
         return (saved && saved.included) ? saved.included : INCLUDED_DATA;
     });
     const [excluded, setExcluded] = useState(() => {
-        const saved = projectData.recycling_data;
+        const saved = normalizeRecyclingData(projectData.recycling_data);
         return (saved && saved.excluded) ? saved.excluded : EXCLUDED_DATA;
     });
     const [editingItem, setEditingItem] = useState(null);
@@ -79,6 +80,14 @@ const Recycling = () => {
         const val = parseFloat(String(item.recoveredValue).replace(/,/g, '')) || 0;
         return sum + val;
     }, 0);
+
+    useEffect(() => {
+        const saved = normalizeRecyclingData(projectData.recycling_data);
+        const nextIncluded = saved.included?.length ? saved.included : INCLUDED_DATA;
+        const nextExcluded = saved.excluded?.length ? saved.excluded : EXCLUDED_DATA;
+        setIncluded(prev => JSON.stringify(nextIncluded) !== JSON.stringify(prev) ? nextIncluded : prev);
+        setExcluded(prev => JSON.stringify(nextExcluded) !== JSON.stringify(prev) ? nextExcluded : prev);
+    }, [projectData.recycling_data]);
 
     useEffect(() => {
         updateProjectData('recycling_data', {

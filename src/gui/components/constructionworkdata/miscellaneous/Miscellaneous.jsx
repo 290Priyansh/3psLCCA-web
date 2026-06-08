@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../../contexts/ProjectDataContext';
+import { normalizeConstructionSections } from '../../../../utils/projectPageSchema';
 import '../ConstructionWorkData.css';
 import MaterialTable from '../MaterialTable';
 
@@ -17,14 +18,23 @@ const DEFAULT_SECTIONS = [
     { id: 'waterproofing', name: 'Waterproofing',   rows: [] },
 ];
 
+const defaultSections = () => normalizeConstructionSections(DEFAULT_SECTIONS, 'miscellaneous');
+
 // MaterialTable imported from shared component
 
 const Miscellaneous = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [sections, setSections] = useState(() => {
         const saved = projectData.miscellaneous_data;
-        return (saved && saved.length > 0) ? saved : DEFAULT_SECTIONS;
+        return (saved && saved.length > 0) ? normalizeConstructionSections(saved, 'miscellaneous') : defaultSections();
     });
+
+    useEffect(() => {
+        const next = projectData.miscellaneous_data?.length
+            ? normalizeConstructionSections(projectData.miscellaneous_data, 'miscellaneous')
+            : defaultSections();
+        setSections(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
+    }, [projectData.miscellaneous_data]);
 
     useEffect(() => {
         updateProjectData('miscellaneous_data', sections);

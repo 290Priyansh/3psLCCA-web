@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
+import { normalizeTrafficData, validateTrafficData } from '../../../utils/projectPageSchema';
 import wpiDb from '../../../data/wpi_db.json';
 
 // ── Constants & Static Data ──────────────────────────────────────────────────
@@ -297,7 +298,7 @@ const TrafficData = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [form, setForm] = useState(() => {
         const saved = projectData.traffic_data;
-        return (saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE;
+        return normalizeTrafficData((saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE);
     });
 
     const [errors, setErrors] = useState(new Set());
@@ -314,6 +315,11 @@ const TrafficData = ({ controller }) => {
     useEffect(() => {
         updateProjectData('traffic_data', form);
     }, [form, updateProjectData]);
+
+    useEffect(() => {
+        const next = normalizeTrafficData({ ...INITIAL_STATE, ...(projectData.traffic_data || {}) });
+        setForm(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
+    }, [projectData.traffic_data]);
 
     const handleModeChange = (val) => setForm(prev => ({ ...prev, calculation_mode: val }));
     const handleCostChange = (val) => setForm(prev => ({ ...prev, road_user_cost_per_day: val }));
@@ -392,12 +398,13 @@ const TrafficData = ({ controller }) => {
     };
 
     const validate = () => {
-        if (!form.calculation_mode) {
-            setValidationMsg("Calculation mode is required.");
-            return false;
+        const messages = validateTrafficData(form);
+        if (messages.length > 0) {
+            setValidationMsg(messages.join(' '));
+            return { valid: false, errors: messages };
         }
         setValidationMsg('');
-        return true;
+        return { valid: true, errors: [] };
     };
 
     const renderIndiaMode = () => (

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
+import { normalizeFinancialData, validateFinancialData } from '../../../utils/projectPageSchema';
 import './FinancialData.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -164,7 +165,7 @@ const FinancialData = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [form, setForm] = useState(() => {
         const saved = projectData.financial_data;
-        return (saved && Object.keys(saved).length > 0) ? saved : INITIAL_STATE;
+        return normalizeFinancialData((saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE);
     });
     const [errors, setErrors] = useState(new Set());
     const [validationMsg, setValidationMsg] = useState('');
@@ -172,9 +173,8 @@ const FinancialData = ({ controller }) => {
     // Sync local state when projectData changes externally
     useEffect(() => {
         const saved = projectData.financial_data;
-        if (saved && Object.keys(saved).length > 0) {
-            setForm(saved);
-        }
+        const next = normalizeFinancialData({ ...INITIAL_STATE, ...(saved || {}) });
+        setForm(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
     }, [projectData.financial_data]);
 
     // Sync form to context whenever it changes
@@ -230,26 +230,18 @@ const FinancialData = ({ controller }) => {
 
     // ── Validation ────────────────────────────────────────────────────────────
     const validate = () => {
+        const messages = validateFinancialData(form);
         const newErrors = new Set();
-        const missing = [];
-
         REQUIRED_KEYS.forEach((key) => {
-            const val = form[key];
-            const isEmpty = val === '' || val === null || val === undefined;
-            const isZero = !isEmpty && Number(val) <= 0;
-            if (isEmpty || isZero) {
-                newErrors.add(key);
-                const field = FINANCIAL_FIELDS.find((f) => f.key === key);
-                missing.push(field?.label ?? key);
-            }
+            if (messages.some((message) => message.includes(key.replace(/_/g, ' ')))) newErrors.add(key);
         });
 
         setErrors(newErrors);
         if (newErrors.size > 0) {
-            const msg = `Missing required financial data: ${missing.join(', ')}`;
+            const msg = `Financial data needs attention: ${messages.join(' ')}`;
             setValidationMsg(msg);
             controller?.engine?._log(msg);
-            return { valid: false, errors: missing };
+            return { valid: false, errors: messages };
         }
 
         setValidationMsg('');

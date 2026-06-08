@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../../contexts/ProjectDataContext';
+import { normalizeConstructionSections } from '../../../../utils/projectPageSchema';
 import '../ConstructionWorkData.css';
 import MaterialTable from '../MaterialTable';
 
@@ -17,14 +18,23 @@ const DEFAULT_SECTIONS = [
     { id: 'bracings',   name: 'Cross Bracings',   rows: [] },
 ];
 
+const defaultSections = () => normalizeConstructionSections(DEFAULT_SECTIONS, 'superstructure');
+
 // MaterialTable imported from shared component
 
 const SuperStructure = ({ controller }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [sections, setSections] = useState(() => {
         const saved = projectData.superstructure_data;
-        return (saved && saved.length > 0) ? saved : DEFAULT_SECTIONS;
+        return (saved && saved.length > 0) ? normalizeConstructionSections(saved, 'superstructure') : defaultSections();
     });
+
+    useEffect(() => {
+        const next = projectData.superstructure_data?.length
+            ? normalizeConstructionSections(projectData.superstructure_data, 'superstructure')
+            : defaultSections();
+        setSections(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
+    }, [projectData.superstructure_data]);
 
     useEffect(() => {
         updateProjectData('superstructure_data', sections);

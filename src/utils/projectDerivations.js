@@ -1,4 +1,4 @@
-import { normalizeProjectData } from './projectSchema';
+import { normalizeProjectData } from './projectSchema.js';
 
 const STRUCTURE_CHUNKS = [
     ['foundation_data', 'Foundation'],
@@ -102,6 +102,8 @@ export const deriveCarbonEmissionData = (projectData) => {
     const materialTotal = includedMaterialRows.reduce((sum, row) => sum + row.total_kgCO2e, 0);
 
     const existingMaterial = carbonData.material_emissions_data || {};
+    const transport = carbonData.transport_emissions_data || carbonData.transportation_emissions_data || {};
+    const machinery = carbonData.machinery_emissions_data || {};
     const diversion = carbonData.diversion_emissions_data || {};
     const webMode = diversion.mode || 'direct';
     const desktopMode = webMode === 'calculate' ? 'Calculate by Vehicle' : 'Enter Directly';
@@ -125,6 +127,18 @@ export const deriveCarbonEmissionData = (projectData) => {
             rows: materialRows,
             category_totals: materialCategoryTotals,
             total_kgCO2e: materialTotal,
+        },
+        transport_emissions_data: {
+            ...transport,
+            total_kgCO2e: parseNumber(transport.total_kgCO2e),
+        },
+        transportation_emissions_data: {
+            ...transport,
+            total_kgCO2e: parseNumber(transport.total_kgCO2e),
+        },
+        machinery_emissions_data: {
+            ...machinery,
+            total_kgCO2e: parseNumber(machinery.total_kgCO2e),
         },
         diversion_emissions_data: {
             ...diversion,
@@ -175,6 +189,9 @@ export const deriveTrafficAndRoadData = (projectData) => {
     const normalizedVehicles = VEHICLE_TYPES.reduce((acc, key) => {
         const row = vehicleData[key] || {};
         acc[key] = {
+            vehicles_per_day: parseNumber(row.vehicles_per_day ?? row.adt ?? row.ADT ?? vehiclesPerDay[key]),
+            accident_percentage: parseNumber(row.accident_percentage),
+            pwr: row.pwr === '' || row.pwr === undefined ? undefined : parseNumber(row.pwr),
             adt: parseNumber(row.adt ?? row.ADT ?? vehiclesPerDay[key]),
             traffic_growth: parseNumber(row.traffic_growth ?? row.growth_rate ?? traffic.traffic_growth),
             velocity: parseNumber(row.velocity ?? row.speed),
@@ -199,13 +216,21 @@ export const deriveTrafficAndRoadData = (projectData) => {
         ...traffic,
         mode: traffic.mode || traffic.calculation_mode || 'GLOBAL',
         vehicle_data: normalizedVehicles,
-        severity_minor: parseNumber(traffic.severity_minor ?? traffic.severity?.minor),
-        severity_major: parseNumber(traffic.severity_major ?? traffic.severity?.major),
-        severity_fatal: parseNumber(traffic.severity_fatal ?? traffic.severity?.fatal),
+        severity_minor: parseNumber(traffic.severity_minor ?? traffic.severity?.severity_minor ?? traffic.severity?.minor),
+        severity_major: parseNumber(traffic.severity_major ?? traffic.severity?.severity_major ?? traffic.severity?.major),
+        severity_fatal: parseNumber(traffic.severity_fatal ?? traffic.severity?.severity_fatal ?? traffic.severity?.fatal),
         carriage_width_in_m: parseNumber(traffic.carriage_width_in_m ?? roadParams.carriage_width_in_m),
         hourly_capacity: parseNumber(traffic.hourly_capacity ?? roadParams.hourly_capacity),
-        alternate_road_carriageway: parseNumber(traffic.alternate_road_carriageway ?? alternateRoad.alternate_road_carriageway),
+        alternate_road_carriageway: traffic.alternate_road_carriageway ?? alternateRoad.alternate_road_carriageway ?? '',
         alternate_road_speed: parseNumber(traffic.alternate_road_speed ?? alternateRoad.alternate_road_speed),
+        road_roughness_mm_per_km: parseNumber(traffic.road_roughness_mm_per_km ?? roadParams.road_roughness_mm_per_km),
+        road_rise_m_per_km: parseNumber(traffic.road_rise_m_per_km ?? roadParams.road_rise_m_per_km),
+        road_fall_m_per_km: parseNumber(traffic.road_fall_m_per_km ?? roadParams.road_fall_m_per_km),
+        additional_reroute_distance_km: parseNumber(traffic.additional_reroute_distance_km ?? roadParams.additional_reroute_distance_km),
+        additional_travel_time_min: parseNumber(traffic.additional_travel_time_min ?? roadParams.additional_travel_time_min),
+        crash_rate_accidents_per_million_km: parseNumber(traffic.crash_rate_accidents_per_million_km ?? roadParams.crash_rate_accidents_per_million_km),
+        work_zone_multiplier: parseNumber(traffic.work_zone_multiplier ?? roadParams.work_zone_multiplier),
+        force_free_flow_off_peak: Boolean(traffic.force_free_flow_off_peak ?? traffic.force_free_flow),
         road_user_cost_per_day: parseNumber(traffic.road_user_cost_per_day),
         peak_hour_distribution: traffic.peak_hour_distribution || traffic.peak_distribution || {},
         wpi: wpiSnapshot,

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
+import { normalizeDemolitionData, validateDemolitionData } from '../../../utils/projectPageSchema';
 import '../financialdata/FinancialData.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -158,8 +159,13 @@ const Demolition = ({ controller, engine }) => {
     const { projectData, updateProjectData } = useProjectData();
     const [form, setForm] = useState(() => {
         const saved = projectData.demolition_data;
-        return (saved && Object.keys(saved).length > 0) ? saved : INITIAL_STATE;
+        return normalizeDemolitionData((saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE);
     });
+
+    useEffect(() => {
+        const next = normalizeDemolitionData({ ...INITIAL_STATE, ...(projectData.demolition_data || {}) });
+        setForm(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
+    }, [projectData.demolition_data]);
 
     useEffect(() => {
         updateProjectData('demolition_data', {
@@ -214,27 +220,19 @@ const Demolition = ({ controller, engine }) => {
     // ── Validation ────────────────────────────────────────────────────────────
 
     const validate = () => {
+        const messages = validateDemolitionData(form);
         const newErrors = new Set();
-        const missing = [];
-
         REQUIRED_KEYS.forEach((key) => {
-            const val = form[key];
-            const isEmpty = val === '' || val === null || val === undefined;
-            const isZero = !isEmpty && Number(val) < 0; // Cost can be 0 sometimes? Wait, usually we require > 0 but lets just check if empty
-            if (isEmpty || isZero) {
-                newErrors.add(key);
-                const field = ALL_FIELDS.find((f) => f.key === key);
-                missing.push(field?.label ?? key);
-            }
+            if (messages.some((message) => message.includes(key.replace(/_/g, ' ')))) newErrors.add(key);
         });
 
         setErrors(newErrors);
         if (newErrors.size > 0) {
-            const msg = `Missing required demolition data: ${missing.join(', ')}`;
+            const msg = `Demolition data needs attention: ${messages.join(' ')}`;
             setValidationMsg(msg);
             if (engine && engine._log) engine._log(msg);
             else if (controller && controller.engine) controller.engine._log(msg);
-            return { valid: false, errors: missing };
+            return { valid: false, errors: messages };
         }
 
         setValidationMsg('');

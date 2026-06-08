@@ -1,3 +1,5 @@
+import { normalizeProjectSection } from './projectPageSchema.js';
+
 export const PROJECT_SCHEMA_VERSION = 1;
 
 export const CANONICAL_SECTION_KEYS = [
@@ -55,7 +57,7 @@ const firstArrayValue = (project, legacyConstruction, keys) => {
     for (const key of keys) {
         const candidate = project?.[key] ?? legacyConstruction?.[key];
         if (Array.isArray(candidate)) return candidate;
-        if (Array.isArray(candidate?.rows)) return candidate.rows;
+        if (Array.isArray(candidate?.rows)) return [candidate];
         if (Array.isArray(candidate?.materials)) return candidate.materials;
         if (Array.isArray(candidate?.data)) return candidate.data;
     }
@@ -146,6 +148,10 @@ export function normalizeProjectData(project) {
         project_currency: generalInfo.project_currency || normalized.currency,
         unit_system: generalInfo.unit_system || normalized.unitSystem,
     };
+
+    for (const key of CANONICAL_SECTION_KEYS) {
+        normalized[key] = normalizeProjectSection(key, normalized[key], normalized);
+    }
 
     // Keep older readers working while the web app migrates page-by-page.
     normalized.maintenance_data = {

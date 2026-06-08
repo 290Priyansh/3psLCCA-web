@@ -4,6 +4,7 @@ import { materialCatalog } from '../utils/materialCatalog';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
 import { Dropdown } from 'react-bootstrap';
 import { backfillGeneralInfo } from '../../../utils/projectCreation';
+import { normalizeGeneralInfo, validateGeneralInfoData } from '../../../utils/projectPageSchema';
 import { getProfiles } from '../../utils/profileStorage';
 import ProfileAvatar from '../ProfileAvatar';
 
@@ -206,7 +207,7 @@ const ProjectInformationPlaceholder = ({ controller }) => {
     const [form, setForm] = useState(() => {
         const filled = backfillGeneralInfo(projectData);
         const saved = filled.general_info;
-        return (saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE;
+        return normalizeGeneralInfo({ ...INITIAL_STATE, ...saved }, filled);
     });
 
     // Sync local state if context data changes (e.g. from global storage)
@@ -217,10 +218,8 @@ const ProjectInformationPlaceholder = ({ controller }) => {
             if (containerRef.current && containerRef.current.contains(document.activeElement)) {
                 return;
             }
-            setForm(prev => {
-                const isDifferent = Object.keys(saved).some(key => saved[key] !== prev[key]);
-                return isDifferent ? { ...INITIAL_STATE, ...saved } : prev;
-            });
+            const next = normalizeGeneralInfo({ ...INITIAL_STATE, ...saved }, filled);
+            setForm(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
         }
     }, [projectData.general_info, projectData.country, projectData.currency, projectData.unitSystem, projectData.name]);
 
@@ -291,23 +290,15 @@ const ProjectInformationPlaceholder = ({ controller }) => {
     // ── Validation ────────────────────────────────────────────────────────────
 
     const validate = () => {
-        const newErrors = new Set();
-        const missing = [];
-
-        REQUIRED_KEYS.forEach((key) => {
-            const val = form[key];
-            if (val === '' || val === null || val === undefined) {
-                newErrors.add(key);
-                missing.push(key.replace(/_/g, ' '));
-            }
-        });
+        const messages = validateGeneralInfoData(form);
+        const newErrors = new Set(messages.length ? ['project_name'] : []);
 
         setErrors(newErrors);
         if (newErrors.size > 0) {
-            const msg = `Missing required general info: ${missing.join(', ')}`;
+            const msg = messages.join(' ');
             setValidationMsg(msg);
             controller?.engine?._log(msg);
-            return { valid: false, errors: missing };
+            return { valid: false, errors: messages };
         }
 
         setValidationMsg('');
