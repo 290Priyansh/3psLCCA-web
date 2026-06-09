@@ -151,7 +151,13 @@ function Dropdown({ id, options, value, onChange, placeholder = '— Select —'
     );
 }
 
-function InputField({ label, hint, value, onChange, unit, required }) {
+function InputField({ label, hint, value, onChange, unit, required, step, decimals }) {
+    const displayValue = value === null || value === undefined || value === ''
+        ? ''
+        : decimals != null
+            ? Number(value).toFixed(decimals)
+            : value;
+
     return (
         <div className="mb-4">
             <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>
@@ -159,7 +165,7 @@ function InputField({ label, hint, value, onChange, unit, required }) {
             </label>
             {hint && <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>{hint}</div>}
             <div className="input-group">
-                <input type="number" className="form-control" value={value || ''} onChange={(e) => onChange(e.target.value)} />
+                <input type="number" step={step} className="form-control" value={displayValue} onChange={(e) => onChange(e.target.value)} />
                 {unit && <span className="input-group-text border-start-0" style={{ fontSize: '0.8rem', backgroundColor: 'var(--app-input-bg)', borderColor: 'var(--app-input-border)' }}>{unit}</span>}
             </div>
         </div>
@@ -443,31 +449,31 @@ const TrafficData = ({ controller }) => {
             <SectionHeader title="Alternate Road Configuration" />
             <div className="mb-4">
                 <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Alternate Road Carriageway *</label>
-                <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>Lane configuration of the alternate route.</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>Lane configuration of the alternate route - auto-fills capacity and width.</div>
                 <select className="form-select" value={form.alternate_road.alternate_road_carriageway} onChange={(e) => {
                     const lane = LANE_TYPES.find(l => l.name === e.target.value);
                     setForm(prev => ({ ...prev, alternate_road: { alternate_road_carriageway: e.target.value, carriage_width_in_m: lane ? lane.width : 0, hourly_capacity: lane ? lane.capacity : 0 } }));
                 }}><option value="">- Select -</option>{LANE_TYPES.map(l => <option key={l.code} value={l.name}>{l.name}</option>)}</select>
             </div>
-            <InputField label="Carriageway Width" unit="(m)" required value={form.alternate_road.carriage_width_in_m} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, carriage_width_in_m: Number(v) } }))} />
-            <InputField label="Hourly Capacity" unit="(veh/hr)" required value={form.alternate_road.hourly_capacity} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, hourly_capacity: Number(v) } }))} />
+            <InputField label="Carriageway Width" unit="(m)" required step="0.01" decimals={2} value={form.alternate_road.carriage_width_in_m} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, carriage_width_in_m: Number(v) } }))} />
+            <InputField label="Hourly Capacity" unit="(veh/hr)" required decimals={0} value={form.alternate_road.hourly_capacity} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, hourly_capacity: Number(v) } }))} />
 
             <SectionHeader title="Accident Severity Distribution" />
-            <InputField label="Minor Injury" unit="(%)" value={form.severity.severity_minor} onChange={(v) => {
+            <InputField label="Minor Injury" hint="Percentage of accidents resulting in minor injury" unit="(%)" step="0.01" decimals={2} value={form.severity.severity_minor} onChange={(v) => {
                 const num = Number(v);
                 let next = { ...form.severity, severity_minor: num };
                 next.severity_major = Math.min(100 - num, next.severity_major);
                 next.severity_fatal = 100 - num - next.severity_major;
                 setForm(prev => ({ ...prev, severity: next }));
             }} />
-            <InputField label="Major Injury" unit="(%)" value={form.severity.severity_major} onChange={(v) => {
+            <InputField label="Major Injury" hint="Percentage of accidents resulting in major injury" unit="(%)" step="0.01" decimals={2} value={form.severity.severity_major} onChange={(v) => {
                 const num = Number(v);
                 let next = { ...form.severity, severity_major: num };
                 next.severity_minor = Math.min(100 - num, next.severity_minor);
                 next.severity_fatal = 100 - num - next.severity_minor;
                 setForm(prev => ({ ...prev, severity: next }));
             }} />
-            <InputField label="Fatal Accident" unit="(%)" value={form.severity.severity_fatal} onChange={(v) => {
+            <InputField label="Fatal Accident" hint="Percentage of accidents resulting in fatal injury" unit="(%)" step="0.01" decimals={2} value={form.severity.severity_fatal} onChange={(v) => {
                 const num = Number(v);
                 let next = { ...form.severity, severity_fatal: num };
                 next.severity_minor = Math.min(100 - num, next.severity_minor);
@@ -476,12 +482,13 @@ const TrafficData = ({ controller }) => {
             }} />
 
             <SectionHeader title="Road Parameters" />
-            <InputField label="Road Roughness" unit="(mm/km)" value={form.road_params.road_roughness_mm_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_roughness_mm_per_km: Number(v) } }))} />
-            <InputField label="Road Rise" unit="(m/km)" required value={form.road_params.road_rise_m_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_rise_m_per_km: Number(v) } }))} />
-            <InputField label="Road Fall" unit="(m/km)" required value={form.road_params.road_fall_m_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_fall_m_per_km: Number(v) } }))} />
-            <InputField label="Additional Reroute Distance" unit="(km)" value={form.road_params.additional_reroute_distance_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, additional_reroute_distance_km: Number(v) } }))} />
-            <InputField label="Additional Travel Time" unit="(min)" value={form.road_params.additional_travel_time_min} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, additional_travel_time_min: Number(v) } }))} />
-            <InputField label="Crash Rate" unit="(acc / M km)" required value={form.road_params.crash_rate_accidents_per_million_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, crash_rate_accidents_per_million_km: Number(v) } }))} />
+            <InputField label="Road Roughness" hint="Indicates the smoothness of the road surface; lower values mean smoother ride quality, higher values mean more unevenness measured in mm/km" unit="(mm/km)" decimals={0} value={form.road_params.road_roughness_mm_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_roughness_mm_per_km: Number(v) } }))} />
+            <InputField label="Road Rise" hint="Upward gradient of the road, expressed as vertical increase in meters per kilometer (m/km)." unit="(m/km)" required step="0.001" decimals={3} value={form.road_params.road_rise_m_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_rise_m_per_km: Number(v) } }))} />
+            <InputField label="Road Fall" hint="Downward gradient of the road, expressed as vertical decrease in meters per kilometer (m/km)." unit="(m/km)" required step="0.001" decimals={3} value={form.road_params.road_fall_m_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_fall_m_per_km: Number(v) } }))} />
+            <InputField label="Additional Rerouting Distance" hint="Distance travelled by the road users due to rerouting during construction." unit="(km)" step="0.001" decimals={3} value={form.road_params.additional_reroute_distance_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, additional_reroute_distance_km: Number(v) } }))} />
+            <InputField label="Rerouting Time" hint="Travel time incurred by road users due to rerouting during construction." unit="(min)" step="0.001" decimals={3} value={form.road_params.additional_travel_time_min} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, additional_travel_time_min: Number(v) } }))} />
+            <InputField label="Crash Rate along Rerouting Route" hint="Number of accidents per million kilometers of road length per day." unit="(acc / M km)" required step="0.01" decimals={2} value={form.road_params.crash_rate_accidents_per_million_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, crash_rate_accidents_per_million_km: Number(v) } }))} />
+            <InputField label="Work Zone Multiplier" hint="Multiplier applied to reflect higher accident risk or delays due to construction work zone conditions." required step="0.0001" decimals={4} value={form.road_params.work_zone_multiplier} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, work_zone_multiplier: Number(v) } }))} />
 
             <SectionHeader title="Traffic Flow" />
             <InputField label="Number of Peak Hours" required value={form.num_peak_hours} onChange={(v) => {
