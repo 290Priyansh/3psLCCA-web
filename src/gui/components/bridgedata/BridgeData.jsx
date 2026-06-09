@@ -1,12 +1,10 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { data as countriesData } from '../utils/countriesdata';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
 import { normalizeBridgeData, validateBridgeData } from '../../../utils/projectPageSchema';
 import './BridgeData.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const BASE_DOCS_URL = 'https://yourdocs.com/bridge/';
 
 const COUNTRIES = countriesData.map((c) => c.COUNTRY);
 
@@ -39,6 +37,7 @@ const INITIAL_STATE = {
     year_of_construction: '',
     duration_construction_months: '',
     working_days_per_month: '',
+    days_per_month: '',
     design_life: '',
     service_life: '',
 };
@@ -55,6 +54,9 @@ const REQUIRED_KEYS = new Set([
     'wind_speed',
     'carriageway_width',
     'year_of_construction',
+    'duration_construction_months',
+    'working_days_per_month',
+    'days_per_month',
     'design_life',
     'service_life',
 ]);
@@ -212,6 +214,8 @@ const BridgeData = ({ controller }) => {
 
     useEffect(() => {
         const next = normalizeBridgeData({ ...INITIAL_STATE, ...(projectData.bridge_data || {}) });
+        // Project imports can replace context data while this page remains mounted.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
     }, [projectData.bridge_data]);
 
@@ -451,6 +455,7 @@ const BridgeData = ({ controller }) => {
                 id="duration_construction_months"
                 label="Duration of Construction"
                 hint="Construction duration expressed in months."
+                required
                 min={0}
                 max={1200}
                 unit="(months)"
@@ -463,6 +468,7 @@ const BridgeData = ({ controller }) => {
                 id="working_days_per_month"
                 label="Working Days per Month"
                 hint="Number of working days assumed per month for scheduling purposes."
+                required
                 docSlug="working-days-per-month"
                 min={0}
                 max={31}
@@ -470,6 +476,19 @@ const BridgeData = ({ controller }) => {
                 value={form.working_days_per_month}
                 onChange={handleChange}
                 hasError={hasError('working_days_per_month')}
+            />
+
+            <NumberField
+                id="days_per_month"
+                label="Days Per Month"
+                hint="Calendar days per month during which traffic is affected."
+                required
+                min={1}
+                max={31}
+                unit="(days)"
+                value={form.days_per_month}
+                onChange={handleChange}
+                hasError={hasError('days_per_month')}
             />
 
             {/* ── Life Cycle ──────────────────────────────────────────────────── */}
@@ -506,6 +525,14 @@ const BridgeData = ({ controller }) => {
             {/* ── Buttons ─────────────────────────────────────────────────────── */}
             <div className="d-flex gap-2 mt-4 mb-3">
                 <button
+                    type="button"
+                    className="btn btn-primary w-100"
+                    onClick={validate}
+                >
+                    Validate Data
+                </button>
+                <button
+                    type="button"
                     className="btn w-100"
                     style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-secondary)', border: '1px solid var(--app-border-mid)', borderRadius: 'var(--app-radius-sm)', transition: 'all 0.2sease' }}
                     onClick={handleClearAll}

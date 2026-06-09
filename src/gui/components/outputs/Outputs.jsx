@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
-import { Container, Row, Col, Card, Button, Form, Table, Badge } from 'react-bootstrap';
+import { Row, Col, Card, Button, Form, Table } from 'react-bootstrap';
 import * as d3 from 'd3';
 import JSZip from 'jszip';
 import pako from 'pako';
-import { FaExclamationTriangle, FaCheckCircle, FaFileDownload, FaFileUpload } from 'react-icons/fa';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { COLORS, PILLAR_COLORS, STAGE_COLORS } from './lccColors';
+import { FaCheckCircle, FaFileDownload, FaFileUpload } from 'react-icons/fa';
+import { PILLAR_COLORS, STAGE_COLORS } from './lccColors';
 import { BREAKDOWN_STAGES, STAGE_DEFS, computeStagePillarTotals } from './breakdownStages';
 import { computeAllSummaries } from './lifecycleSummary';
 import { generateFullReport } from './reportGenerator';
@@ -72,7 +70,7 @@ const D3PieChart = ({ data }) => {
                     .style("left", (event.pageX + 10) + "px")
                     .style("top", (event.pageY - 28) + "px");
             })
-            .on("mouseout", function(event, d) {
+            .on("mouseout", function() {
                 d3.select(this)
                     .transition().duration(200)
                     .style("opacity", 0.9)
@@ -224,7 +222,7 @@ const D3BarChart = ({ data }) => {
                     .style("left", (event.pageX + 10) + "px")
                     .style("top", (event.pageY - 28) + "px");
             })
-            .on("mouseout", function(event, d) {
+            .on("mouseout", function() {
                 d3.select(this)
                     .transition().duration(200)
                     .attr("opacity", 1);
@@ -262,7 +260,7 @@ const D3BarChart = ({ data }) => {
     );
 };
 
-const Outputs = ({ addLog, isLocked, navTrigger }) => {
+const Outputs = ({ addLog, navTrigger }) => {
     const { projectData, updateProjectData } = useProjectData();
 
     const projectInputs = React.useMemo(() => {
@@ -288,6 +286,8 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
 
     useEffect(() => {
         if (projectData?.bridge_data?.design_life) {
+            // Keep the analysis period aligned when a different project is loaded.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setAnalysisPeriod(parseInt(projectData.bridge_data.design_life) || 100);
         }
     }, [projectData?.bridge_data?.design_life]);
@@ -314,12 +314,15 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
 
     useEffect(() => {
         // Reset to validation view whenever a navigation trigger occurs
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setView('validation');
     }, [navTrigger]);
 
     useEffect(() => {
         if (resultsToUse) {
             const summaries = computeAllSummaries(resultsToUse);
+            // Results can be restored from saved project data while mounted.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setComputedData(summaries);
         } else {
             setComputedData(null);
@@ -405,7 +408,7 @@ const Outputs = ({ addLog, isLocked, navTrigger }) => {
 
         try {
             const response = await calculateLcca({
-                project: projectInputs,
+                project: projectData,
                 analysisPeriodYears: analysisPeriod,
                 debug: false,
             });

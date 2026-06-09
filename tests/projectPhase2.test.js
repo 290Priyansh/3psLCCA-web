@@ -5,6 +5,7 @@ import { normalizeProjectData } from '../src/utils/projectSchema.js';
 import {
     normalizeCarbonEmissionData,
     normalizeProjectSection,
+    validateBridgeData,
     validateDemolitionData,
     validateFinancialData,
     validateMaintenanceData,
@@ -116,4 +117,27 @@ test('page validators allow zero-cost percentages but reject invalid durations a
         wpi_profile: '2024',
         wpi_data: { small_cars: { petrol: 1 } },
     }).some((message) => message.includes('Vehicle accident percentages')));
+});
+
+test('bridge validation requires the calculation schedule used by the core', () => {
+    const errors = validateBridgeData({
+        bridge_name: 'Bridge',
+        user_agency: 'Agency',
+        location_country: 'India',
+        bridge_type: 'Girder',
+        span: 10,
+        num_lanes: 2,
+        footpath: 'Yes',
+        wind_speed: 20,
+        carriageway_width: 7,
+        year_of_construction: 2026,
+        design_life: 50,
+        service_life: 50,
+        duration_construction_months: 12,
+        working_days_per_month: 31,
+        days_per_month: 30,
+    });
+
+    assert.ok(errors.some((message) => message.includes('cannot exceed')));
+    assert.ok(validateBridgeData({}).some((message) => message.includes('days per month')));
 });

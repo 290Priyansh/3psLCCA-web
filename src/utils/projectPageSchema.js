@@ -184,13 +184,31 @@ export const validateBridgeData = (value) => {
         'wind_speed',
         'carriageway_width',
         'year_of_construction',
+        'duration_construction_months',
+        'working_days_per_month',
+        'days_per_month',
         'design_life',
         'service_life',
     ]).map((key) => `${key.replaceAll('_', ' ')} is required.`);
 
-    for (const key of ['span', 'num_lanes', 'wind_speed', 'carriageway_width', 'design_life', 'service_life']) {
+    for (const key of [
+        'span',
+        'num_lanes',
+        'wind_speed',
+        'carriageway_width',
+        'duration_construction_months',
+        'working_days_per_month',
+        'days_per_month',
+        'design_life',
+        'service_life',
+    ]) {
         const number = numberValue(data[key]);
         if (number !== null && number <= 0) errors.push(`${key.replaceAll('_', ' ')} must be greater than zero.`);
+    }
+    const workingDays = numberValue(data.working_days_per_month);
+    const daysPerMonth = numberValue(data.days_per_month);
+    if (workingDays !== null && daysPerMonth !== null && workingDays > daysPerMonth) {
+        errors.push('working days per month cannot exceed days per month.');
     }
     return errors;
 };

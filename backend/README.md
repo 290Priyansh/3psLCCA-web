@@ -19,3 +19,11 @@ npm run dev
 ```
 
 Set `VITE_LCCA_API_URL` if the backend is not running at `http://localhost:8000`.
+
+## Tests
+
+```bash
+cd backend
+source .venv/bin/activate
+pytest -q
+```

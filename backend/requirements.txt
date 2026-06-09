@@ -1,4 +1,6 @@
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.7
--e ../3psLCCA-gui-python-venv/3psLCCA-core
+httpx>=0.27
+pytest>=8.0
+-e ../../3psLCCA-gui-python-venv/3psLCCA-core
