@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
 import { normalizeTrafficData, validateTrafficData } from '../../../utils/projectPageSchema';
 import wpiDb from '../../../data/wpi_db.json';
+import HelpModal from '../HelpModal';
 
 // ── Constants & Static Data ──────────────────────────────────────────────────
 
@@ -89,6 +90,39 @@ const INITIAL_STATE = {
 
 // ── Helper Components ────────────────────────────────────────────────────────
 
+const FIELD_INFO = {
+    minor_injury: {
+        title: 'Minor Injury',
+        message: 'A minor injury can be defined as a non-fatal, non-permanent injury requiring minimal medical intervention or resulting in temporary/short-term loss of working time. It covers a wide range of non-emergency events such as cuts, wounds, bruises, swelling, and more. These injuries are generally defined as physical harms that are not life-threatening, do not cause permanent disability, and do not require extensive hospitalization or surgical interventions. They are typically treatable with first aid or primary care and generally allow for full recovery within a short period, often within a few days or weeks.',
+    },
+    major_injury: {
+        title: 'Major Injury',
+        message: 'A major injury can be defined as grievous hurt or dangerous injury which poses an immediate or potential threat to life, causes severe bodily pain, or results in permanent impairment of body function. These injuries endanger life such as severe head trauma, internal organ damage, or extensive hemorrhage necessitating urgent hospital care, resuscitation, or surgical intervention. The recovery period typically ranges from 3 to 24 months.',
+    },
+    fatal_accident: {
+        title: 'Fatal Accident',
+        message: 'A fatal accident can be defined as an unforeseen, unexpected, and undesirable event, such as a trauma or a collision, which results in the direct, immediate, or delayed death of one or more individuals. A fatal accident is typically classified as one where death occurs immediately or within 30 days of the injury sustained in the incident. Death occurs through intracranial hemorrhage, laceration of vital organs, or traumatic asphyxia. It requires an autopsy to determine if the death was caused by the injury or other underlying factors.',
+    },
+};
+
+function InfoIcon({ title, message }) {
+    const [show, setShow] = useState(false);
+    return (
+        <>
+            <button
+                type="button"
+                className="btn btn-link p-0 ms-1 align-baseline border-0"
+                style={{ color: 'var(--app-primary-accent)', fontSize: '0.75rem', textDecoration: 'none', lineHeight: 1 }}
+                onClick={() => setShow(true)}
+                aria-label={`More information about ${title}`}
+            >
+                ⓘ
+            </button>
+            <HelpModal show={show} onHide={() => setShow(false)} title={title} message={message} />
+        </>
+    );
+}
+
 function SectionHeader({ title }) { return <h5 className="mb-4 fw-bold pb-2 mt-4" style={{ borderBottom: '1px solid var(--app-border-dark)', fontSize: '1rem', color: 'var(--app-text-primary)', transition: 'all 0.3s' }}>{title}</h5>; }
 
 function Dropdown({ id, options, value, onChange, placeholder = '— Select —' }) {
@@ -151,7 +185,7 @@ function Dropdown({ id, options, value, onChange, placeholder = '— Select —'
     );
 }
 
-function InputField({ label, hint, value, onChange, unit, required, step, decimals }) {
+function InputField({ label, hint, infoTitle, infoMessage, value, onChange, unit, required, step, decimals }) {
     const displayValue = value === null || value === undefined || value === ''
         ? ''
         : decimals != null
@@ -163,7 +197,12 @@ function InputField({ label, hint, value, onChange, unit, required, step, decima
             <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>
                 {label}{required && <span className="text-danger"> *</span>}
             </label>
-            {hint && <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>{hint}</div>}
+            {hint && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>
+                    {hint}
+                    {infoTitle && infoMessage && <InfoIcon title={infoTitle} message={infoMessage} />}
+                </div>
+            )}
             <div className="input-group">
                 <input type="number" step={step} className="form-control" value={displayValue} onChange={(e) => onChange(e.target.value)} />
                 {unit && <span className="input-group-text border-start-0" style={{ fontSize: '0.8rem', backgroundColor: 'var(--app-input-bg)', borderColor: 'var(--app-input-border)' }}>{unit}</span>}
@@ -459,21 +498,21 @@ const TrafficData = ({ controller }) => {
             <InputField label="Hourly Capacity" unit="(veh/hr)" required decimals={0} value={form.alternate_road.hourly_capacity} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, hourly_capacity: Number(v) } }))} />
 
             <SectionHeader title="Accident Severity Distribution" />
-            <InputField label="Minor Injury" hint="Percentage of accidents resulting in minor injury" unit="(%)" step="0.01" decimals={2} value={form.severity.severity_minor} onChange={(v) => {
+            <InputField label="Minor Injury" hint="Percentage of accidents resulting in minor injury" infoTitle={FIELD_INFO.minor_injury.title} infoMessage={FIELD_INFO.minor_injury.message} unit="(%)" step="0.01" decimals={2} value={form.severity.severity_minor} onChange={(v) => {
                 const num = Number(v);
                 let next = { ...form.severity, severity_minor: num };
                 next.severity_major = Math.min(100 - num, next.severity_major);
                 next.severity_fatal = 100 - num - next.severity_major;
                 setForm(prev => ({ ...prev, severity: next }));
             }} />
-            <InputField label="Major Injury" hint="Percentage of accidents resulting in major injury" unit="(%)" step="0.01" decimals={2} value={form.severity.severity_major} onChange={(v) => {
+            <InputField label="Major Injury" hint="Percentage of accidents resulting in major injury" infoTitle={FIELD_INFO.major_injury.title} infoMessage={FIELD_INFO.major_injury.message} unit="(%)" step="0.01" decimals={2} value={form.severity.severity_major} onChange={(v) => {
                 const num = Number(v);
                 let next = { ...form.severity, severity_major: num };
                 next.severity_minor = Math.min(100 - num, next.severity_minor);
                 next.severity_fatal = 100 - num - next.severity_minor;
                 setForm(prev => ({ ...prev, severity: next }));
             }} />
-            <InputField label="Fatal Accident" hint="Percentage of accidents resulting in fatal injury" unit="(%)" step="0.01" decimals={2} value={form.severity.severity_fatal} onChange={(v) => {
+            <InputField label="Fatal Accident" hint="Percentage of accidents resulting in fatal injury" infoTitle={FIELD_INFO.fatal_accident.title} infoMessage={FIELD_INFO.fatal_accident.message} unit="(%)" step="0.01" decimals={2} value={form.severity.severity_fatal} onChange={(v) => {
                 const num = Number(v);
                 let next = { ...form.severity, severity_fatal: num };
                 next.severity_minor = Math.min(100 - num, next.severity_minor);
