@@ -25,6 +25,7 @@ def global_project() -> dict:
         "bridge_data": {
             "bridge_name": "Regression Bridge",
             "design_life": 50,
+            "analysis_period": 50,
             "duration_construction_months": 18,
             "working_days_per_month": 22,
             "days_per_month": 30,

@@ -27,6 +27,9 @@ const numberValue = (value) => {
 };
 
 const normalizeObject = (value) => ({ ...asObject(value) });
+const valueOrDefault = (value, fallback) => (
+    value === '' || value === null || value === undefined ? fallback : value
+);
 
 export const normalizeGeneralInfo = (value, project = {}) => {
     const data = normalizeObject(value);
@@ -39,7 +42,46 @@ export const normalizeGeneralInfo = (value, project = {}) => {
     };
 };
 
-export const normalizeBridgeData = (value) => normalizeObject(value);
+export const normalizeBridgeData = (value, project = {}) => {
+    const data = normalizeObject(value);
+    const generalInfo = asObject(project.general_info);
+    const legacyLocation = [
+        data.location_address,
+        data.location_from,
+        data.location_via,
+        data.location_to,
+    ].filter(Boolean).join(', ');
+
+    return {
+        ...data,
+        bridge_name: data.bridge_name ?? '',
+        user_agency: data.user_agency ?? '',
+        project_country: data.project_country
+            || data.location_country
+            || generalInfo.project_country
+            || project.country
+            || 'INDIA',
+        location: data.location || legacyLocation,
+        bridge_type: data.bridge_type ?? '',
+        span: valueOrDefault(data.span, 0),
+        carriageway_width: valueOrDefault(data.carriageway_width, 0),
+        num_lanes: valueOrDefault(data.num_lanes, 0),
+        vehicle_path_direction: data.vehicle_path_direction ?? '',
+        footpath: data.footpath ?? '',
+        design_life: valueOrDefault(data.design_life, 0),
+        analysis_period: valueOrDefault(
+            data.analysis_period,
+            valueOrDefault(data.service_life, 0),
+        ),
+        year_of_construction: valueOrDefault(
+            data.year_of_construction,
+            new Date().getFullYear(),
+        ),
+        duration_construction_months: valueOrDefault(data.duration_construction_months, 0),
+        working_days_per_month: valueOrDefault(data.working_days_per_month, 22),
+        days_per_month: valueOrDefault(data.days_per_month, 30),
+    };
+};
 
 export const normalizeFinancialData = (value) => normalizeObject(value);
 
@@ -174,43 +216,44 @@ export const validateGeneralInfoData = (value) => {
 export const validateBridgeData = (value) => {
     const data = asObject(value);
     const errors = required(data, [
-        'bridge_name',
-        'user_agency',
-        'location_country',
-        'bridge_type',
-        'span',
-        'num_lanes',
-        'footpath',
-        'wind_speed',
-        'carriageway_width',
+        'design_life',
+        'analysis_period',
         'year_of_construction',
         'duration_construction_months',
-        'working_days_per_month',
-        'days_per_month',
-        'design_life',
-        'service_life',
     ]).map((key) => `${key.replaceAll('_', ' ')} is required.`);
 
-    for (const key of [
-        'span',
-        'num_lanes',
-        'wind_speed',
-        'carriageway_width',
-        'duration_construction_months',
-        'working_days_per_month',
-        'days_per_month',
-        'design_life',
-        'service_life',
-    ]) {
+    for (const key of ['design_life', 'analysis_period', 'duration_construction_months']) {
         const number = numberValue(data[key]);
         if (number !== null && number <= 0) errors.push(`${key.replaceAll('_', ' ')} must be greater than zero.`);
     }
-    const workingDays = numberValue(data.working_days_per_month);
+
     const daysPerMonth = numberValue(data.days_per_month);
-    if (workingDays !== null && daysPerMonth !== null && workingDays > daysPerMonth) {
-        errors.push('working days per month cannot exceed days per month.');
+    if (daysPerMonth !== null && (daysPerMonth < 29 || daysPerMonth > 31)) {
+        errors.push('days per month must be between 29 and 31.');
     }
     return errors;
+};
+
+export const getBridgeWarnings = (value) => {
+    const data = asObject(value);
+    const warnings = [];
+    const workingDays = numberValue(data.working_days_per_month);
+    const daysPerMonth = numberValue(data.days_per_month);
+    const yearOfConstruction = numberValue(data.year_of_construction);
+
+    if (
+        workingDays !== null
+        && daysPerMonth !== null
+        && workingDays > 0
+        && daysPerMonth > 0
+        && workingDays > daysPerMonth
+    ) {
+        warnings.push('working days per month cannot exceed days per month.');
+    }
+    if (yearOfConstruction !== null && yearOfConstruction < new Date().getFullYear()) {
+        warnings.push('year of construction is in the past; confirm this is intentional.');
+    }
+    return warnings;
 };
 
 export const validateFinancialData = (value) => {

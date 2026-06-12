@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { normalizeProjectData } from '../src/utils/projectSchema.js';
 import {
     normalizeCarbonEmissionData,
+    normalizeBridgeData,
     normalizeProjectSection,
     validateBridgeData,
     validateDemolitionData,
@@ -119,25 +120,51 @@ test('page validators allow zero-cost percentages but reject invalid durations a
     }).some((message) => message.includes('Vehicle accident percentages')));
 });
 
-test('bridge validation requires the calculation schedule used by the core', () => {
+test('bridge normalization mirrors desktop defaults and carries project country', () => {
+    const normalized = normalizeBridgeData({
+        location_country: '',
+        location_from: 'Mumbai',
+        location_via: 'Creek',
+        location_to: 'Navi Mumbai',
+        service_life: 75,
+        year_of_construction: '',
+        working_days_per_month: '',
+        days_per_month: '',
+    }, {
+        country: 'INDIA',
+        general_info: { project_country: 'INDIA' },
+    });
+
+    assert.equal(normalized.project_country, 'INDIA');
+    assert.equal(normalized.location, 'Mumbai, Creek, Navi Mumbai');
+    assert.equal(normalized.analysis_period, 75);
+    assert.equal(normalized.year_of_construction, new Date().getFullYear());
+    assert.equal(normalized.working_days_per_month, 22);
+    assert.equal(normalized.days_per_month, 30);
+});
+
+test('bridge validation only requires the four desktop-required fields', () => {
     const errors = validateBridgeData({
-        bridge_name: 'Bridge',
-        user_agency: 'Agency',
-        location_country: 'India',
-        bridge_type: 'Girder',
-        span: 10,
-        num_lanes: 2,
-        footpath: 'Yes',
-        wind_speed: 20,
-        carriageway_width: 7,
         year_of_construction: 2026,
         design_life: 50,
-        service_life: 50,
+        analysis_period: 75,
         duration_construction_months: 12,
-        working_days_per_month: 31,
+        working_days_per_month: 22,
         days_per_month: 30,
     });
 
-    assert.ok(errors.some((message) => message.includes('cannot exceed')));
-    assert.ok(validateBridgeData({}).some((message) => message.includes('days per month')));
+    assert.deepEqual(errors, []);
+
+    const missing = validateBridgeData({
+        bridge_name: '',
+        user_agency: '',
+        project_country: 'INDIA',
+        year_of_construction: 2026,
+        working_days_per_month: 22,
+        days_per_month: 30,
+    });
+    assert.equal(missing.length, 3);
+    assert.ok(missing.some((message) => message.includes('design life')));
+    assert.ok(missing.some((message) => message.includes('analysis period')));
+    assert.ok(missing.some((message) => message.includes('duration construction months')));
 });

@@ -27,6 +27,7 @@ def test_missing_required_sections_return_field_specific_errors(global_project: 
     project["financial_data"] = {}
     project["maintenance_repair_data"].pop("major_repair_duration")
     project["bridge_data"].pop("days_per_month")
+    project["bridge_data"].pop("analysis_period")
     project["carbon_emission_data"]["transport_emissions_data"] = {}
     project["recycling_data"].pop("total_recovered_value")
 
@@ -35,6 +36,7 @@ def test_missing_required_sections_return_field_specific_errors(global_project: 
     assert "financial_data.discount_rate is required." in validation["errors"]
     assert "maintenance_repair_data.major_repair_duration is required." in validation["errors"]
     assert "bridge_data.days_per_month is required." in validation["errors"]
+    assert "bridge_data.analysis_period is required." in validation["errors"]
     assert (
         "carbon_emission_data.transport_emissions_data.total_kgCO2e is required."
         in validation["errors"]
@@ -59,6 +61,14 @@ def test_empty_canonical_demolition_fields_do_not_pass_via_derived_aliases(
 
     assert "demolition_data.demolition_cost is required." in errors
     assert "demolition_data.demolition_carbon_cost is required." in errors
+
+
+def test_bridge_name_and_owner_are_optional_like_desktop(global_project: dict) -> None:
+    project = copy.deepcopy(global_project)
+    project["bridge_data"]["bridge_name"] = ""
+    project["bridge_data"]["user_agency"] = ""
+
+    assert validate_project(project, 50)["errors"] == []
 
 
 def test_zero_percentages_are_valid_but_positive_durations_are_enforced(

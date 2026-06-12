@@ -463,11 +463,11 @@ def _validate_project_fields(
     recycling = _as_dict(project.get("recycling_data"))
     traffic = _as_dict(project.get("traffic_and_road_data") or project.get("traffic_data"))
 
-    if not str(bridge.get("bridge_name") or "").strip():
-        errors.append("bridge_data.bridge_name is required.")
-
     design_life = _require_number(
         bridge, "design_life", "bridge_data.design_life", errors, positive=True
+    )
+    bridge_analysis_period = _require_number(
+        bridge, "analysis_period", "bridge_data.analysis_period", errors, positive=True
     )
     construction_months = _require_number(
         bridge,
@@ -498,6 +498,8 @@ def _validate_project_fields(
     analysis_period = _parse_number(analysis_period_years)
     if analysis_period is None or analysis_period <= 0:
         errors.append("analysis_period_years must be greater than zero.")
+    elif bridge_analysis_period is not None and analysis_period != bridge_analysis_period:
+        errors.append("analysis_period_years must match bridge_data.analysis_period.")
     elif construction_months is not None and construction_months > analysis_period * 12:
         errors.append("bridge_data.duration_construction_months cannot exceed the analysis period.")
     if design_life is not None and design_life != int(design_life):

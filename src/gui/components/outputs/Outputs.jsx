@@ -268,7 +268,9 @@ const Outputs = ({ addLog, navTrigger }) => {
     }, [projectData]);
 
     const [view, setView] = useState('validation'); // 'validation' or 'results'
-    const [analysisPeriod, setAnalysisPeriod] = useState(100);
+    const [analysisPeriod, setAnalysisPeriod] = useState(
+        () => parseInt(projectData?.bridge_data?.analysis_period) || 0
+    );
     const [uploadedResults, setUploadedResults] = useState(null);
     const [calculationResults, setCalculationResults] = useState(() => projectData?.outputs_data?.results || null);
     const [fileError, setFileError] = useState(null);
@@ -285,12 +287,10 @@ const Outputs = ({ addLog, navTrigger }) => {
     const LCCA_MAGIC = [0x4C, 0x43, 0x43, 0x41]; // "LCCA"
 
     useEffect(() => {
-        if (projectData?.bridge_data?.design_life) {
-            // Keep the analysis period aligned when a different project is loaded.
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setAnalysisPeriod(parseInt(projectData.bridge_data.design_life) || 100);
-        }
-    }, [projectData?.bridge_data?.design_life]);
+        // Keep the analysis period aligned when a different project is loaded.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setAnalysisPeriod(parseInt(projectData?.bridge_data?.analysis_period) || 0);
+    }, [projectData?.bridge_data?.analysis_period]);
 
     const resultsToUse = uploadedResults || calculationResults;
 
@@ -389,7 +389,7 @@ const Outputs = ({ addLog, navTrigger }) => {
     };
 
     const handleProceed = async () => {
-        if (!uploadedResults && (!projectInputs || !projectInputs.bridge_data?.bridge_name)) {
+        if (!uploadedResults && !projectInputs) {
             setFileError("Please enter project data or upload a .3psLCCA archive first.");
             return;
         }
@@ -520,13 +520,13 @@ const Outputs = ({ addLog, navTrigger }) => {
 
             <Button 
                 className="w-100 mt-4 py-2" 
-                disabled={isCalculating || (!uploadedResults && !projectInputs?.bridge_data?.bridge_name)}
+                disabled={isCalculating || (!uploadedResults && !projectInputs)}
                 style={{ 
                     backgroundColor: 'var(--app-primary-accent)', 
                     border: 'none', 
                     color: '#000', 
                     fontWeight: 'bold', 
-                    opacity: (isCalculating || (!uploadedResults && !projectInputs?.bridge_data?.bridge_name)) ? 0.5 : 1 
+                    opacity: (isCalculating || (!uploadedResults && !projectInputs) ? 0.5 : 1)
                 }}
                 onClick={handleProceed}
             >
