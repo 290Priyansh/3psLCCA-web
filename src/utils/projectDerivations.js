@@ -29,6 +29,7 @@ export const getSectionsTotal = (sections) => {
     return sections.reduce((sum, section) => {
         const rows = Array.isArray(section?.rows) ? section.rows : [];
         return sum + rows.reduce((rowSum, row) => {
+            if (row?.state?.in_trash) return rowSum;
             return rowSum + parseNumber(row?.rate) * parseNumber(row?.qty);
         }, 0);
     }, 0);
@@ -49,7 +50,7 @@ export const getMaterialCarbonRows = (projectData) => {
         return sections.flatMap((section) => {
             const component = section?.name || '';
             const rows = Array.isArray(section?.rows) ? section.rows : [];
-            return rows.map((row) => {
+            return rows.filter((row) => !row?.state?.in_trash).map((row) => {
                 const id = `${chunkId}-${row?.id}`;
                 const quantity = parseNumber(row?.qty);
                 const conversionFactor = parseNumber(row?.conversionFactor, 1) || 1;

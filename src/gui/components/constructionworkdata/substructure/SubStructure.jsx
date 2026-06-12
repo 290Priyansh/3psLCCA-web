@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../../contexts/ProjectDataContext';
 import { normalizeConstructionSections } from '../../../../utils/projectPageSchema';
 import '../ConstructionWorkData.css';
@@ -20,7 +20,7 @@ const defaultSections = () => normalizeConstructionSections(DEFAULT_SECTIONS, 's
 
 // MaterialTable imported from shared component
 
-const SubStructure = ({ controller }) => {
+const SubStructure = () => {
     const { projectData, updateProjectData } = useProjectData();
     const [sections, setSections] = useState(() => {
         const saved = projectData.substructure_data;
@@ -31,6 +31,8 @@ const SubStructure = ({ controller }) => {
         const next = projectData.substructure_data?.length
             ? normalizeConstructionSections(projectData.substructure_data, 'substructure')
             : defaultSections();
+        // Project imports replace context data while this tab remains mounted.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSections(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
     }, [projectData.substructure_data]);
 
@@ -38,19 +40,26 @@ const SubStructure = ({ controller }) => {
         updateProjectData('substructure_data', sections);
     }, [sections, updateProjectData]);
     const handleRowChange = useCallback((sId, rId, field, val) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: s.rows.map((r) => r.id !== rId ? r : { ...r, [field]: val }) })), []);
-    const handleRowDelete = useCallback((sId, rId) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: s.rows.filter((r) => r.id !== rId) })), []);
+    const handleRowDelete = useCallback((sId, rId) => {
+        if (!window.confirm('Move this item to trash?')) return;
+        setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: s.rows.map((r) => r.id !== rId ? r : { ...r, state: { ...(r.state || {}), in_trash: true } }) }));
+    }, []);
     const handleRowUpdate = useCallback((sId, rId, updatedRowData) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: s.rows.map((r) => r.id !== rId ? r : { ...r, ...updatedRowData }) })), []);
     const handleDeleteSection = useCallback((sId) => {
-        if (window.confirm("Are you sure you want to delete this component section?")) {
-            setSections((prev) => prev.filter((s) => s.id !== sId));
-        }
+        setSections((prev) => prev.map((s) => {
+            if (s.id !== sId) return s;
+            const activeCount = s.rows.filter((row) => !row?.state?.in_trash).length;
+            const message = activeCount ? `Move all ${activeCount} item(s) in "${s.name}" to trash?` : `Delete component "${s.name}"?\n\nIt will be hidden but can be recovered by restoring its materials from the trash.`;
+            if (!window.confirm(message)) return s;
+            return activeCount ? { ...s, rows: s.rows.map((row) => ({ ...row, state: { ...(row.state || {}), in_trash: true } })) } : { ...s, is_deleted: true };
+        }));
     }, []);
     const handleAddRow = useCallback((sId, newRowData) => setSections((prev) => prev.map((s) => s.id !== sId ? s : { ...s, rows: [...s.rows, { id: uid(), ...newRowData }] })), []);
     const handleAddSection = () => setSections((prev) => [...prev, { id: uid(), name: `Section ${prev.length + 1}`, rows: [] }]);
 
     return (
         <div>
-            {sections.map((sec) => (
+            {sections.filter((sec) => !sec.is_deleted).map((sec) => (
                 <MaterialTable
                     key={sec.id}
                     section={sec}

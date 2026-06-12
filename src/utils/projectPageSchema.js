@@ -66,8 +66,11 @@ export const normalizeBridgeData = (value, project = {}) => {
         span: valueOrDefault(data.span, 0),
         carriageway_width: valueOrDefault(data.carriageway_width, 0),
         num_lanes: valueOrDefault(data.num_lanes, 0),
-        vehicle_path_direction: data.vehicle_path_direction ?? '',
-        footpath: data.footpath ?? '',
+        vehicle_path_direction: valueOrDefault(data.vehicle_path_direction, 'One Way'),
+        footpath: valueOrDefault(
+            data.footpath === 'No' ? 'No footpath' : data.footpath,
+            'No footpath',
+        ),
         design_life: valueOrDefault(data.design_life, 0),
         analysis_period: valueOrDefault(
             data.analysis_period,
