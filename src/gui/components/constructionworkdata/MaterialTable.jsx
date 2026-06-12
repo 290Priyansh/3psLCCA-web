@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import MaterialAddModal from './MaterialAddModal';
 
 const calcTotal = (row) => {
@@ -20,6 +20,7 @@ const displayCell = (value, emptyLabel = '—') =>
 export default function MaterialTable({ section, onRowChange, onRowDelete, onRowUpdate, onAddRow, onSectionDelete, projectData }) {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editRow, setEditRow] = useState(null);
+    const activeRows = section.rows.filter((row) => !row?.state?.in_trash);
     return (
         <div className="border rounded mb-4 p-3" style={{ borderColor: 'var(--app-border-mid)', backgroundColor: 'var(--app-bg-card)' }}>
             <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2" style={{ borderColor: 'var(--app-border-mid)' }}>
@@ -44,14 +45,14 @@ export default function MaterialTable({ section, onRowChange, onRowDelete, onRow
                         </tr>
                     </thead>
                     <tbody>
-                        {section.rows.length === 0 ? (
+                        {activeRows.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="text-center" style={{ color: 'var(--app-text-muted)', padding: '18px', fontStyle: 'italic', fontSize: '0.78rem' }}>
                                     No items yet. Click "Add Material" below.
                                 </td>
                             </tr>
                         ) : (
-                            section.rows.map((row) => (
+                            activeRows.map((row) => (
                                 <tr key={row.id} style={{ borderBottom: '1px solid var(--app-border-light)' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--app-bg-alt)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                                     <td className="text-start px-2" style={{ borderRight: '1px solid var(--app-border-light)' }}>
                                         {displayCell(row.workName)}
@@ -91,7 +92,7 @@ export default function MaterialTable({ section, onRowChange, onRowDelete, onRow
                                                 type="button"
                                                 className="btn btn-sm px-2 py-1 border-0"
                                                 style={{ color: '#e74c3c', transition: 'all 0.2s', backgroundColor: 'transparent' }}
-                                                title="Delete row"
+                                                title="Move to Trash"
                                                 onClick={() => onRowDelete(section.id, row.id)}
                                                 onMouseEnter={(e) => { e.currentTarget.style.color = '#c0392b'; e.currentTarget.style.backgroundColor = 'rgba(231, 76, 60, 0.08)'; }}
                                                 onMouseLeave={(e) => { e.currentTarget.style.color = '#e74c3c'; e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -131,7 +132,7 @@ export default function MaterialTable({ section, onRowChange, onRowDelete, onRow
                         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(231, 76, 60, 0.08)'; e.currentTarget.style.borderColor = '#e74c3c'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = 'rgba(231, 76, 60, 0.4)'; }}
                     >
-                        Delete Component
+                        {activeRows.length ? 'Clear All' : 'Delete Component'}
                     </button>
                 )}
             </div>

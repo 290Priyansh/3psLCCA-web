@@ -171,17 +171,18 @@ def _sum_section_rows(sections: Any) -> float:
     for section in _as_list(sections):
         for row in _as_list(_as_dict(section).get("rows")):
             row_data = _as_dict(row)
+            if _as_dict(row_data.get("state")).get("in_trash", False):
+                continue
             total += _num(row_data.get("rate")) * _num(row_data.get("qty"))
     return total
 
 
 def _construction_data(project: dict[str, Any]) -> dict[str, Any]:
-    existing = _as_dict(project.get("construction_work_data"))
-    foundation = _num(_as_dict(existing.get("Foundation")).get("total")) or _sum_section_rows(project.get("foundation_data"))
-    substructure = _num(_as_dict(existing.get("Sub Structure")).get("total")) or _sum_section_rows(project.get("substructure_data"))
-    superstructure = _num(_as_dict(existing.get("Super Structure")).get("total")) or _sum_section_rows(project.get("superstructure_data"))
-    miscellaneous = _num(_as_dict(existing.get("Miscellaneous")).get("total")) or _sum_section_rows(project.get("miscellaneous_data"))
-    grand_total = _num(existing.get("grand_total")) or foundation + substructure + superstructure + miscellaneous
+    foundation = _sum_section_rows(project.get("foundation_data"))
+    substructure = _sum_section_rows(project.get("substructure_data"))
+    superstructure = _sum_section_rows(project.get("superstructure_data"))
+    miscellaneous = _sum_section_rows(project.get("miscellaneous_data"))
+    grand_total = foundation + substructure + superstructure + miscellaneous
     return {
         "foundation_total": foundation,
         "substructure_total": substructure,
@@ -204,6 +205,8 @@ def _material_carbon_total(project: dict[str, Any]) -> float:
         for section in _as_list(project.get(chunk_key)):
             for row in _as_list(_as_dict(section).get("rows")):
                 row_data = _as_dict(row)
+                if _as_dict(row_data.get("state")).get("in_trash", False):
+                    continue
                 row_id = f"{chunk_key}-{row_data.get('id')}"
                 if row_id in excluded_ids:
                     continue

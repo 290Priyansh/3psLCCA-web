@@ -26,8 +26,8 @@ const INITIAL_STATE = {
     span: 0,
     carriageway_width: 0,
     num_lanes: 0,
-    vehicle_path_direction: '',
-    footpath: '',
+    vehicle_path_direction: 'One Way',
+    footpath: 'No footpath',
     design_life: 0,
     analysis_period: 0,
     year_of_construction: new Date().getFullYear(),
@@ -84,7 +84,7 @@ function TextField({ id, label, hint, required, value, onChange, readOnly = fals
     );
 }
 
-function SelectField({ id, label, hint, required, options, value, onChange }) {
+function SelectField({ id, label, hint, required, options, value, onChange, allowEmpty = true }) {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
 
@@ -125,13 +125,15 @@ function SelectField({ id, label, hint, required, options, value, onChange }) {
                 </button>
                 {open && (
                     <ul className="dropdown-menu show w-100 p-1 shadow-sm overflow-y-auto" role="listbox" style={{ maxHeight: '250px', backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-input-border)' }}>
-                        <li
-                            className="dropdown-item text-muted fst-italic"
-                            style={{ cursor: 'pointer', fontSize: '0.875rem' }}
-                            onClick={() => select('')}
-                        >
-                            — Select —
-                        </li>
+                        {allowEmpty && (
+                            <li
+                                className="dropdown-item text-muted fst-italic"
+                                style={{ cursor: 'pointer', fontSize: '0.875rem' }}
+                                onClick={() => select('')}
+                            >
+                                — Select —
+                            </li>
+                        )}
                         {options.map((opt) => (
                             <li
                                 key={opt}
@@ -326,6 +328,7 @@ const BridgeData = ({ controller }) => {
                 options={['One Way', 'Two Way']}
                 value={form.vehicle_path_direction}
                 onChange={handleChange}
+                allowEmpty={false}
             />
 
             <SelectField
@@ -335,6 +338,7 @@ const BridgeData = ({ controller }) => {
                 options={['No footpath', 'Footpath at one side', 'Footpath at both sides']}
                 value={form.footpath}
                 onChange={handleChange}
+                allowEmpty={false}
             />
 
             {/* ── Life Cycle ──────────────────────────────────────────────────── */}

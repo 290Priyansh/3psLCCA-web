@@ -28,7 +28,7 @@ const AddDeliveryModal = ({ isOpen, onClose, onSave, initialData, controller }) 
             const sections = projectData[chunkId] || [];
             sections.forEach(section => {
                 const items = section.rows || [];
-                items.forEach(item => {
+                items.filter(item => !item?.state?.in_trash).forEach(item => {
                     mats.push({
                         id: item.id,
                         name: item.workName || 'Unnamed',

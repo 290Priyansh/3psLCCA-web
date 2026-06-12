@@ -41,3 +41,74 @@
     color: var(--app-text-primary) !important;
     border-color: var(--app-border-light) !important;
 }
+
+.construction-preview-backdrop {
+    z-index: 1070;
+    background: rgba(0, 0, 0, 0.62);
+}
+
+.construction-preview-modal {
+    z-index: 1080;
+}
+
+.construction-import-warning {
+    padding: 8px 12px;
+    border: 1px solid #d6a23d;
+    border-radius: 4px;
+    background: #fff3cd;
+    color: #664d03;
+    font-size: 0.82rem;
+}
+
+.construction-preview-tabs .btn {
+    color: var(--app-text-secondary);
+    border-bottom: 2px solid transparent;
+}
+
+.construction-preview-tabs .btn.active {
+    color: var(--app-primary-accent);
+    border-bottom-color: var(--app-primary-accent);
+    background: var(--app-bg-alt);
+}
+
+.construction-preview-table {
+    min-width: 1900px;
+    font-size: 0.76rem;
+}
+
+.construction-preview-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+    background: var(--app-bg-alt) !important;
+}
+
+.construction-preview-cell {
+    width: 130px;
+    min-width: 90px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--app-text-primary);
+}
+
+.construction-preview-cell:focus {
+    outline: none;
+    border-color: var(--app-primary-accent);
+    background: var(--app-input-bg);
+}
+
+.construction-row-error td {
+    background: rgba(192, 57, 43, 0.12) !important;
+}
+
+.construction-row-warning td {
+    background: rgba(214, 137, 16, 0.12) !important;
+}
+
+.construction-issues-cell {
+    min-width: 280px;
+    white-space: normal;
+    color: var(--app-text-secondary);
+}

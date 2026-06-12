@@ -22,7 +22,7 @@ const MaterialEmissions = ({ controller }) => {
             sections.forEach(section => {
                 const compName = section.name || '';
                 const items = section.rows || [];
-                items.forEach(item => {
+                items.filter(item => !item?.state?.in_trash).forEach(item => {
                     allMats.push({
                         id: `${chunkId}-${item.id}`,
                         name: item.workName || 'Unnamed Material',

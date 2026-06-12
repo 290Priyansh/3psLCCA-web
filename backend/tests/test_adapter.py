@@ -71,6 +71,23 @@ def test_bridge_name_and_owner_are_optional_like_desktop(global_project: dict) -
     assert validate_project(project, 50)["errors"] == []
 
 
+def test_trashed_materials_are_excluded_from_construction_costs(global_project: dict) -> None:
+    project = copy.deepcopy(global_project)
+    project["foundation_data"][0]["rows"].append(
+        {
+            "id": "deleted-foundation",
+            "workName": "Deleted material",
+            "rate": 999_999,
+            "qty": 999,
+            "state": {"in_trash": True},
+        }
+    )
+
+    prepared = prepare_for_core(project, 50)
+
+    assert prepared.construction_costs["initial_construction_cost"] == 300_000
+
+
 def test_zero_percentages_are_valid_but_positive_durations_are_enforced(
     global_project: dict,
 ) -> None:
