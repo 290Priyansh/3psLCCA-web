@@ -216,7 +216,7 @@ const ProjectNavbar = ({ onBackToHome, setActiveNode, onNewProject, onOpenProjec
                             addLog("Calculation success: output matrices generated.");
                             setIsLocked(true);
                         }, 1200);
-                        setActiveNode('Outputs');
+                        setActiveNode('Results');
                     }}
                 >
                     <FaCalculator size={13} className="me-2" />

@@ -90,7 +90,7 @@ const ProjectLayout = ({ children, activeNode, setActiveNode, onBackToHome, onNe
                 <div className="flex-grow-1 overflow-y-auto" style={{ backgroundColor: 'var(--app-bg-main)', transition: 'background-color 0.3s ease' }}>
                     <div style={{ position: 'relative', minHeight: '100%' }}>
                         {children}
-                        {isLocked && activeNode !== 'Outputs' && activeNode !== 'Logs' && <LockedOverlay />}
+                        {isLocked && activeNode !== 'Results' && activeNode !== 'Outputs' && activeNode !== 'Logs' && <LockedOverlay />}
                     </div>
                 </div>
             </div>
