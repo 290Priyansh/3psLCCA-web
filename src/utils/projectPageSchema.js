@@ -9,6 +9,30 @@ const VEHICLE_KEYS = [
     'mcv',
 ];
 
+const TRAFFIC_VEHICLE_DEFAULTS = {
+    hcv: { pwr: 7.22 },
+    mcv: { pwr: 8 },
+};
+
+const WPI_COST_KEYS = [
+    'petrol',
+    'diesel',
+    'engine_oil',
+    'other_oil',
+    'grease',
+    'property_damage',
+    'tyre_cost',
+    'spare_parts',
+    'fixed_depreciation',
+    'commodity_holding_cost',
+    'passenger_cost',
+    'crew_cost',
+    'fatal',
+    'major',
+    'minor',
+    'vot_cost',
+];
+
 const asObject = (value) => (
     value && typeof value === 'object' && !Array.isArray(value) ? value : {}
 );
@@ -110,27 +134,66 @@ export const normalizeTrafficData = (value) => {
     const data = normalizeObject(value);
     const vehicles = asObject(data.vehicles || data.vehicle_data);
     const normalizedVehicles = VEHICLE_KEYS.reduce((acc, key) => {
-        acc[key] = { ...asObject(vehicles[key]) };
+        const row = asObject(vehicles[key]);
+        const vehiclesPerDay = numberValue(row.vehicles_per_day ?? row.adt ?? row.ADT) || 0;
+        const defaultPwr = TRAFFIC_VEHICLE_DEFAULTS[key]?.pwr;
+        const shouldRepairLegacyPwr = defaultPwr !== undefined
+            && vehiclesPerDay === 0
+            && (row.pwr === '' || row.pwr === null || row.pwr === undefined || Number(row.pwr) === 0);
+        acc[key] = {
+            vehicles_per_day: 0,
+            accident_percentage: 0,
+            pwr: defaultPwr || 0,
+            ...row,
+            ...(shouldRepairLegacyPwr ? { pwr: defaultPwr } : {}),
+        };
         return acc;
     }, {});
     const alternateRoad = normalizeObject(data.alternate_road);
     const severity = normalizeObject(data.severity);
     const roadParams = normalizeObject(data.road_params);
-    const profileYear = data.wpi_year
+    const profileYear = String(data.wpi?.selected_profile_year || '')
+        || data.wpi_year
         || String(data.wpi_profile || '').match(/\d{4}/)?.[0]
-        || '';
+        || '2019';
+
+    const rawWpiData = data.wpi?.data_snapshot?.selected
+        || data.wpi_data
+        || data.wpi?.data_snapshot
+        || data.wpi?.WPI;
 
     return {
         ...data,
         calculation_mode: data.calculation_mode || data.mode || 'INDIA',
         vehicles: normalizedVehicles,
-        alternate_road: alternateRoad,
-        severity: severity,
-        road_params: roadParams,
+        force_free_flow: data.force_free_flow ?? data.force_free_flow_off_peak ?? true,
+        alternate_road: {
+            alternate_road_carriageway: '',
+            carriage_width_in_m: 0,
+            hourly_capacity: 0,
+            ...alternateRoad,
+        },
+        severity: {
+            severity_minor: 0,
+            severity_major: 0,
+            severity_fatal: 0,
+            ...severity,
+        },
+        road_params: {
+            road_roughness_mm_per_km: 2000,
+            road_rise_m_per_km: 0,
+            road_fall_m_per_km: 0,
+            additional_reroute_distance_km: 0,
+            additional_travel_time_min: 0,
+            crash_rate_accidents_per_million_km: 0,
+            work_zone_multiplier: 1,
+            ...roadParams,
+        },
+        num_peak_hours: numberValue(data.num_peak_hours) ?? 0,
         peak_distribution: normalizeObject(data.peak_distribution || data.peak_hour_distribution),
-        wpi_profile: data.wpi_profile || '',
+        wpi_profile: data.wpi?.selected_profile_name || data.wpi_profile || '2019',
         wpi_year: profileYear,
-        wpi_data: normalizeObject(data.wpi_data || data.wpi?.data_snapshot || data.wpi?.WPI),
+        wpi_data: normalizeObject(rawWpiData),
         wpi: data.wpi || (
             data.wpi_profile || data.wpi_data
                 ? {
@@ -303,8 +366,11 @@ export const validateTrafficData = (value) => {
         if (Math.abs(accidentTotal - 100) > 0.1) {
             errors.push('Vehicle accident percentages must sum to 100.');
         }
-        if (!data.wpi_profile || Object.keys(data.wpi_data).length === 0) {
-            errors.push('A WPI profile is required when INDIA mode traffic is greater than zero.');
+        for (const key of ['hcv', 'mcv']) {
+            const row = data.vehicles[key];
+            if ((numberValue(row.vehicles_per_day) || 0) > 0 && (numberValue(row.pwr) || 0) <= 0) {
+                errors.push(`Passenger Weight Ratio (PWR) for ${key.toUpperCase()} must be greater than zero when that vehicle type has traffic.`);
+            }
         }
     }
 
@@ -322,6 +388,31 @@ export const validateTrafficData = (value) => {
     }
     if ((numberValue(data.alternate_road.hourly_capacity) || 0) <= 0) {
         errors.push('Alternate road hourly capacity must be greater than zero.');
+    }
+    if ((numberValue(data.road_params.road_roughness_mm_per_km) || 0) < 2000) {
+        errors.push('Road roughness must be at least 2000 mm/km.');
+    }
+    const workZoneMultiplier = numberValue(data.road_params.work_zone_multiplier);
+    if (workZoneMultiplier === null || workZoneMultiplier < 0 || workZoneMultiplier > 1) {
+        errors.push('Work zone multiplier must be between 0 and 1.');
+    }
+    const activePeaks = Object.entries(data.peak_distribution)
+        .filter(([key]) => key.startsWith('peak_hour_'))
+        .slice(0, data.num_peak_hours)
+        .map(([, value]) => numberValue(value) || 0);
+    if (totalAdt > 0 && activePeaks.some((value) => value <= 0)) {
+        errors.push('Each configured peak hour traffic proportion must be greater than zero.');
+    }
+    if (activePeaks.reduce((sum, value) => sum + value, 0) > 1 + 1e-6) {
+        errors.push('Peak hour traffic proportions must not exceed 100%.');
+    }
+    if (!data.wpi_profile || Object.keys(data.wpi_data).length === 0) {
+        errors.push('A WPI profile is required in INDIA mode.');
+    } else {
+        const zeroWpiCell = VEHICLE_KEYS.some((vehicle) => (
+            WPI_COST_KEYS.some((key) => (numberValue(data.wpi_data?.[vehicle]?.[key]) || 0) <= 0)
+        ));
+        if (zeroWpiCell) errors.push('WPI adjustment factor values must be greater than zero.');
     }
     return errors;
 };

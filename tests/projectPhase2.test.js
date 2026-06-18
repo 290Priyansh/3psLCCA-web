@@ -79,6 +79,63 @@ test('traffic page state derives to core-compatible traffic fields', () => {
     assert.equal(derived.alternate_road_carriageway, 'Two Lane');
 });
 
+test('traffic normalization restores desktop initial PWR and WPI defaults', () => {
+    const normalized = normalizeProjectSection('traffic_data', {
+        vehicles: {
+            hcv: { vehicles_per_day: 0, accident_percentage: 0, pwr: 0 },
+            mcv: {},
+        },
+        force_free_flow_off_peak: true,
+    });
+
+    assert.equal(normalized.vehicles.hcv.pwr, 7.22);
+    assert.equal(normalized.vehicles.mcv.pwr, 8);
+    assert.equal(normalized.wpi_profile, '2019');
+    assert.equal(normalized.wpi_year, '2019');
+    assert.equal(normalized.force_free_flow, true);
+    assert.equal(normalized.road_params.road_roughness_mm_per_km, 2000);
+    assert.equal(normalized.road_params.work_zone_multiplier, 1);
+});
+
+test('traffic normalization prefers the desktop WPI snapshot over stale flat data', () => {
+    const normalized = normalizeProjectSection('traffic_data', {
+        wpi_profile: '2019',
+        wpi_data: { small_cars: { petrol: 0 } },
+        wpi: {
+            selected_profile_name: '2021',
+            selected_profile_year: 2021,
+            data_snapshot: {
+                selected: { small_cars: { petrol: 108.4 } },
+            },
+        },
+    });
+
+    assert.equal(normalized.wpi_profile, '2021');
+    assert.equal(normalized.wpi_year, '2021');
+    assert.equal(normalized.wpi_data.small_cars.petrol, 108.4);
+});
+
+test('traffic validation requires rerouting road configuration in India mode', () => {
+    const errors = validateTrafficData({
+        calculation_mode: 'INDIA',
+        alternate_road: {
+            alternate_road_carriageway: '',
+            carriage_width_in_m: 0,
+            hourly_capacity: 0,
+        },
+        road_params: {
+            road_roughness_mm_per_km: 2000,
+            work_zone_multiplier: 1,
+        },
+        wpi_profile: '2019',
+        wpi_data: {
+            small_cars: { petrol: 1 },
+        },
+    });
+
+    assert.ok(errors.some((message) => message.includes('Alternate road carriageway is required')));
+});
+
 test('page validators allow zero-cost percentages but reject invalid durations and traffic sums', () => {
     assert.deepEqual(validateFinancialData({
         discount_rate: '0',
