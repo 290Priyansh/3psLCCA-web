@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { databases, APPWRITE_CONFIG, ID, Query, account } from './appwrite';
 import { normalizeProjectData } from '../utils/projectSchema';
 

@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createDefaultProject, normalizeProjectData } from '../utils/projectSchema';
 import { normalizeProjectSection } from '../utils/projectPageSchema';

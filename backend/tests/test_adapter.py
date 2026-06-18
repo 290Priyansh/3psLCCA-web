@@ -130,7 +130,7 @@ def test_india_mode_requires_valid_wpi_when_adt_is_positive(india_project: dict)
         prepare_for_core(project, 50)
 
 
-def test_india_mode_with_zero_adt_does_not_require_wpi(india_project: dict) -> None:
+def test_india_mode_with_zero_adt_still_requires_wpi_like_desktop(india_project: dict) -> None:
     project = copy.deepcopy(india_project)
     for vehicle in project["traffic_data"]["vehicles"].values():
         vehicle["vehicles_per_day"] = 0
@@ -139,10 +139,16 @@ def test_india_mode_with_zero_adt_does_not_require_wpi(india_project: dict) -> N
     project["traffic_data"].pop("wpi_profile")
     project["traffic_data"].pop("wpi_year")
 
-    prepared = prepare_for_core(project, 50)
+    with pytest.raises(AdapterValidationError, match="traffic_data.wpi is required"):
+        prepare_for_core(project, 50)
 
-    assert prepared.wpi is None
-    assert prepared.computed["wpi_required"] is False
+
+def test_india_mode_converts_selected_wpi_indices_to_2019_ratios(india_project: dict) -> None:
+    prepared = prepare_for_core(india_project, 50)
+
+    selected_petrol = india_project["traffic_data"]["wpi_data"]["small_cars"]["petrol"]
+    assert prepared.wpi is not None
+    assert prepared.wpi["WPI"]["small_cars"]["petrol"] == pytest.approx(selected_petrol / 85.4)
 
 
 def test_global_and_india_projects_calculate(global_project: dict, india_project: dict) -> None:

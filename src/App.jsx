@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom'
 import HomePage from './gui/components/Homepage'

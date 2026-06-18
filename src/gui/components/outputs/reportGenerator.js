@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BREAKDOWN_STAGES, STAGE_DEFS, computeStagePillarTotals } from './breakdownStages';

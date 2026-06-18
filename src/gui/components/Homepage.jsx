@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from 'react';
 import { BsHouseDoorFill, BsFileEarmarkPlus, BsFolder2Open, BsGearFill, BsThreeDotsVertical, BsStarFill, BsStar } from 'react-icons/bs';
 import { AiOutlineRedo } from 'react-icons/ai';

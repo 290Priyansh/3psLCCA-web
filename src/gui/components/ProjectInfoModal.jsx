@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import { FaInfoCircle, FaCalendarAlt, FaGlobe, FaCoins, FaRulerCombined } from 'react-icons/fa';

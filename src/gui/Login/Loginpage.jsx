@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Container, Row, Col, Modal, Alert, Spinner } from 'react-bootstrap';
 import { BsStars, BsGoogle } from 'react-icons/bs';

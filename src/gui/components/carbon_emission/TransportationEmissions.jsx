@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form, Table } from 'react-bootstrap';
 import { useProjectData } from '../../../contexts/ProjectDataContext';

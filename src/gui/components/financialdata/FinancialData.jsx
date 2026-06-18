@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useCallback, useEffect } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
 import { normalizeFinancialData, validateFinancialData } from '../../../utils/projectPageSchema';

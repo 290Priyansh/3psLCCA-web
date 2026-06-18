@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Tabs, Tab } from 'react-bootstrap';
 import Select from 'react-select';

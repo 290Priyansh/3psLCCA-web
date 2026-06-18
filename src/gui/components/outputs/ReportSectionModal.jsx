@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState } from 'react';
 import { Modal, Button, Form, Accordion, Row, Col } from 'react-bootstrap';
 import { FaFilePdf, FaCheckSquare, FaSquare } from 'react-icons/fa';

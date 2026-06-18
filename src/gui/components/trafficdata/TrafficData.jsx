@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useProjectData } from '../../../contexts/ProjectDataContext';
 import { normalizeTrafficData, validateTrafficData } from '../../../utils/projectPageSchema';
 import wpiDb from '../../../data/wpi_db.json';
@@ -9,15 +9,11 @@ import HelpModal from '../HelpModal';
 const LANE_TYPES = [
     { code: 'SL', name: 'Single Lane', width: 3.75, capacity: 435 },
     { code: 'IL', name: 'Intermediate Lane', width: 5.5, capacity: 1158 },
-    { code: '2L', name: 'Two Lane (Two Way)', width: 7.0, capacity: 2400 },
-    { code: '2L_1W', name: 'Two Lane (One Way)', width: 7.0, capacity: 2700 },
-    { code: '3L_1W', name: 'Three Lane (One Way)', width: 10.5, capacity: 4200 },
-    { code: '4L', name: 'Four Lane (Two Way)', width: 7.0, capacity: 5400 },
-    { code: '6L', name: 'Six Lane (Two Way)', width: 10.5, capacity: 8400 },
-    { code: '8L', name: 'Eight Lane (Two Way)', width: 14.0, capacity: 13600 },
-    { code: 'EW4', name: '4 Lane Expressway (Two Way)', width: 0, capacity: 5000 },
-    { code: 'EW6', name: '6 Lane Expressway (Two Way)', width: 0, capacity: 7500 },
-    { code: 'EW8', name: '8 Lane Expressway (Two Way)', width: 0, capacity: 9200 },
+    { code: '2L', name: 'Two Lane', width: 7.0, capacity: 1200 },
+    { code: '4L', name: 'Four Lane', width: 14.0, capacity: 2900 },
+    { code: '6L', name: 'Six Lane', width: 21.0, capacity: 4300 },
+    { code: '8L', name: 'Eight Lane', width: 28.0, capacity: 7200 },
+    { code: 'EW8', name: 'Expressway', width: 0, capacity: 9200 },
 ];
 
 const VEHICLES = [
@@ -32,18 +28,31 @@ const VEHICLES = [
 ];
 
 const WPI_COLUMNS = [
-    { key: 'grease', label: 'Grease' },
-    { key: 'property_damage', label: 'Prop. Damage' },
-    { key: 'tyre_cost', label: 'Tyre Cost' },
-    { key: 'spare_parts', label: 'Spare Parts' },
-    { key: 'fixed_depreciation', label: 'Fixed Depr.' },
-    { key: 'commodity_holding_cost', label: 'Hold. Cost' },
-    { key: 'passenger_cost', label: 'Passenger' },
-    { key: 'crew_cost', label: 'Crew' },
-    { key: 'fatal', label: 'Fatal' },
-    { key: 'major', label: 'Major' },
-    { key: 'minor', label: 'Minor' },
-    { key: 'vot_cost', label: 'VOT Cost' },
+    { key: 'petrol', label: 'Petrol Cost', group: 'Fuel Cost (INR)' },
+    { key: 'diesel', label: 'Diesel Cost', group: 'Fuel Cost (INR)' },
+    { key: 'engine_oil', label: 'Engine Oil Cost', group: 'Fuel Cost (INR)' },
+    { key: 'other_oil', label: 'Other Oil Cost', group: 'Fuel Cost (INR)' },
+    { key: 'grease', label: 'Grease Cost', group: 'Fuel Cost (INR)' },
+    { key: 'property_damage', label: 'Property Damage Cost', group: 'Vehicle Cost (INR)' },
+    { key: 'tyre_cost', label: 'Tyre Cost', group: 'Vehicle Cost (INR)' },
+    { key: 'spare_parts', label: 'Spare Parts Cost', group: 'Vehicle Cost (INR)' },
+    { key: 'fixed_depreciation', label: 'Fixed Depreciation', group: 'Vehicle Cost (INR)' },
+    { key: 'commodity_holding_cost', label: 'Commodity Holding Cost', group: 'Commodity Cost (INR)' },
+    { key: 'passenger_cost', label: 'Passenger Cost', group: 'Passenger and Crew Cost (INR)' },
+    { key: 'crew_cost', label: 'Crew Cost', group: 'Passenger and Crew Cost (INR)' },
+    { key: 'fatal', label: 'Fatal Injury Cost', group: 'Medical Cost (INR)' },
+    { key: 'major', label: 'Major Injury Cost', group: 'Medical Cost (INR)' },
+    { key: 'minor', label: 'Minor Injury Cost', group: 'Medical Cost (INR)' },
+    { key: 'vot_cost', label: 'Value of Time Cost', group: 'Value of Time Cost (INR)' },
+];
+
+const WPI_GROUPS = [
+    { label: 'Fuel Cost (INR)', span: 5 },
+    { label: 'Vehicle Cost (INR)', span: 4 },
+    { label: 'Commodity Cost (INR)', span: 1 },
+    { label: 'Passenger and Crew Cost (INR)', span: 2 },
+    { label: 'Medical Cost (INR)', span: 3 },
+    { label: 'Value of Time Cost (INR)', span: 1 },
 ];
 
 // Load WPI Database from local JSON
@@ -56,6 +65,41 @@ if (wpiDb && wpiDb.entries) {
         };
     });
 }
+
+const cloneData = (value) => JSON.parse(JSON.stringify(value));
+const emptyWpiData = () => Object.fromEntries(
+    VEHICLES.map(({ key }) => [
+        key,
+        Object.fromEntries(WPI_COLUMNS.map(({ key: columnKey }) => [columnKey, 1])),
+    ]),
+);
+const normalizeWpiMatrix = (value) => {
+    const data = emptyWpiData();
+    VEHICLES.forEach(({ key: vehicleKey }) => {
+        WPI_COLUMNS.forEach(({ key: columnKey }) => {
+            const valueAtCell = Number(value?.[vehicleKey]?.[columnKey]);
+            if (Number.isFinite(valueAtCell)) data[vehicleKey][columnKey] = valueAtCell;
+        });
+    });
+    return data;
+};
+const officialWpiProfile = (name) => WPI_DATABASE[name];
+const getWpiValue = (data, vehicleKey, columnKey) => Number(data?.[vehicleKey]?.[columnKey] ?? 0);
+const deriveCommonState = (data) => Object.fromEntries(
+    WPI_COLUMNS.map(({ key }) => {
+        const values = VEHICLES.map(({ key: vehicleKey }) => getWpiValue(data, vehicleKey, key));
+        return [key, values.every((value) => Math.abs(value - values[0]) < 1e-9)];
+    }),
+);
+const computeWpiRatio = (selected, base) => Object.fromEntries(
+    VEHICLES.map(({ key: vehicleKey }) => [
+        vehicleKey,
+        Object.fromEntries(WPI_COLUMNS.map(({ key: columnKey }) => {
+            const baseValue = getWpiValue(base, vehicleKey, columnKey);
+            return [columnKey, baseValue > 0 ? getWpiValue(selected, vehicleKey, columnKey) / baseValue : 1];
+        })),
+    ]),
+);
 
 const INITIAL_STATE = {
     calculation_mode: 'INDIA',
@@ -82,8 +126,8 @@ const INITIAL_STATE = {
     },
     num_peak_hours: 0,
     peak_distribution: {},
-    wpi_profile: '2024',
-    wpi_data: WPI_DATABASE['2024']?.data || {},
+    wpi_profile: '2019',
+    wpi_data: WPI_DATABASE['2019']?.data || {},
     road_user_cost_per_day: 0,
     remarks: '',
 };
@@ -124,66 +168,6 @@ function InfoIcon({ title, message }) {
 }
 
 function SectionHeader({ title }) { return <h5 className="mb-4 fw-bold pb-2 mt-4" style={{ borderBottom: '1px solid var(--app-border-dark)', fontSize: '1rem', color: 'var(--app-text-primary)', transition: 'all 0.3s' }}>{title}</h5>; }
-
-function Dropdown({ id, options, value, onChange, placeholder = '— Select —' }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-
-    useEffect(() => {
-        if (!open) return;
-        const handler = (e) => {
-            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [open]);
-
-    const select = (opt) => { onChange(opt); setOpen(false); };
-
-    return (
-        <div className="position-relative" ref={ref}>
-            <button
-                type="button"
-                id={id}
-                className="form-control d-flex align-items-center justify-content-between text-start"
-                onClick={() => setOpen((o) => !o)}
-                aria-haspopup="listbox"
-                aria-expanded={open}
-            >
-                <span className={value ? '' : 'text-muted fst-italic'}>
-                    {value || placeholder}
-                </span>
-                <span className="text-muted ms-2" style={{ fontSize: '0.75rem', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>▾</span>
-            </button>
-            {open && (
-                <ul className="dropdown-menu show w-100 p-1 shadow-sm overflow-y-auto" role="listbox" style={{ maxHeight: '250px', backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-input-border)' }}>
-                    <li className="dropdown-item text-muted fst-italic" style={{ cursor: 'pointer', fontSize: '0.875rem' }} onClick={() => select('')}>
-                        {placeholder}
-                    </li>
-                    {options.map((opt) => (
-                        <li
-                            key={opt}
-                            role="option"
-                            aria-selected={value === opt}
-                            className={`dropdown-item ${value === opt ? 'active fw-bold' : ''}`}
-                            style={{
-                                cursor: 'pointer',
-                                fontSize: '0.875rem',
-                                backgroundColor: value === opt ? 'var(--app-accent-bg, rgba(115, 165, 175, 0.15))' : 'transparent',
-                                color: value === opt ? 'var(--app-primary-accent)' : 'var(--app-text-primary)'
-                            }}
-                            onClick={() => select(opt)}
-                            onMouseEnter={(e) => { if (value !== opt) e.target.style.backgroundColor = 'var(--app-bg-alt)'; }}
-                            onMouseLeave={(e) => { if (value !== opt) e.target.style.backgroundColor = 'transparent'; }}
-                        >
-                            {opt}
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-}
 
 function InputField({ label, hint, infoTitle, infoMessage, value, onChange, unit, required, step, decimals }) {
     const displayValue = value === null || value === undefined || value === ''
@@ -322,7 +306,7 @@ function RichTextEditor({ value, onChange }) {
 
     return (
         <div className="mb-4">
-            <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Remarks / Notes</label>
+            <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Notes</label>
             <div className="border rounded" style={{ borderColor: 'var(--app-input-border)', backgroundColor: 'var(--app-input-bg)' }}>
                 <div className="d-flex flex-wrap align-items-center gap-1 p-2 border-bottom" style={{ borderColor: 'var(--app-input-border)', backgroundColor: 'var(--app-bg-alt)' }}>
                     {TOOLBAR_DEFS.map((btn, i) =>
@@ -339,30 +323,100 @@ function RichTextEditor({ value, onChange }) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-const TrafficData = ({ controller }) => {
-    const { projectData, updateProjectData } = useProjectData();
-    const [form, setForm] = useState(() => {
-        const saved = projectData.traffic_data;
-        return normalizeTrafficData((saved && Object.keys(saved).length > 0) ? { ...INITIAL_STATE, ...saved } : INITIAL_STATE);
-    });
+const LEGACY_LANE_NAMES = {
+    'Two Lane (Two Way)': 'Two Lane',
+    'Four Lane (Two Way)': 'Four Lane',
+    'Six Lane (Two Way)': 'Six Lane',
+    'Eight Lane (Two Way)': 'Eight Lane',
+    '8 Lane Expressway (Two Way)': 'Expressway',
+};
 
-    const [errors, setErrors] = useState(new Set());
+const buildTrafficForm = (value) => {
+    const normalized = normalizeTrafficData({ ...INITIAL_STATE, ...(value || {}) });
+    const laneValue = normalized.alternate_road.alternate_road_carriageway;
+    const lane = LANE_TYPES.find((item) => item.code === laneValue || item.name === laneValue);
+    const wpiProfile = normalized.wpi_profile || '2019';
+    const officialProfile = officialWpiProfile(wpiProfile);
+    const customProfiles = Array.isArray(normalized.wpi?.custom_profiles)
+        ? normalized.wpi.custom_profiles
+        : [];
+    const selectedCustom = customProfiles.find((profile) => profile?.metadata?.name === wpiProfile);
+    const selectedData = officialProfile?.data
+        || selectedCustom?.data
+        || normalized.wpi_data;
+    return {
+        ...normalized,
+        alternate_road: {
+            ...normalized.alternate_road,
+            alternate_road_carriageway: lane?.name || LEGACY_LANE_NAMES[laneValue] || '',
+        },
+        wpi_profile: wpiProfile,
+        wpi_year: String(
+            officialProfile?.metadata?.year
+            || selectedCustom?.metadata?.year
+            || normalized.wpi_year
+            || 2019,
+        ),
+        wpi_data: normalizeWpiMatrix(
+            Object.keys(selectedData || {}).length > 0
+                ? selectedData
+                : WPI_DATABASE['2019'].data,
+        ),
+        wpi_custom_profiles: customProfiles,
+        wpi_common_state: normalized.wpi?.common_state || deriveCommonState(selectedData),
+    };
+};
+
+const serializeTrafficForm = (form) => {
+    const {
+        wpi_custom_profiles: customProfiles,
+        wpi_common_state: commonState,
+        ...projectForm
+    } = form;
+    const selectedOfficial = officialWpiProfile(form.wpi_profile);
+    const selectedCustom = customProfiles.find(
+        (profile) => profile?.metadata?.name === form.wpi_profile,
+    );
+    const selectedMetadata = selectedOfficial?.metadata || selectedCustom?.metadata || {};
+    const baseData = WPI_DATABASE['2019'].data;
+    const selectedData = cloneData(form.wpi_data);
+
+    return {
+        ...projectForm,
+        force_free_flow_off_peak: Boolean(form.force_free_flow),
+        wpi: {
+            selected_profile_id: selectedMetadata.id || null,
+            selected_profile_name: form.wpi_profile,
+            selected_profile_year: Number(form.wpi_year || selectedMetadata.year || 2019),
+            profile_type: selectedOfficial ? 'db' : 'custom',
+            data_snapshot: {
+                base: cloneData(baseData),
+                selected: selectedData,
+                ratio: computeWpiRatio(selectedData, baseData),
+            },
+            common_state: commonState,
+            custom_profiles: customProfiles,
+        },
+    };
+};
+
+const TrafficData = () => {
+    const { projectData, updateProjectData } = useProjectData();
+    const [form, setForm] = useState(() => buildTrafficForm(projectData.traffic_data));
+
     const [validationMsg, setValidationMsg] = useState('');
-    const [showSaveAs, setShowSaveAs] = useState(false);
-    const [saveAsForm, setSaveAsForm] = useState({ name: '', year: '2024', remark: '' });
-    const [showInfoModal, setShowInfoModal] = useState(false);
-    const [infoMessage, setInfoMessage] = useState('');
-    const [showImportModal, setShowImportModal] = useState(false);
-    const [importSelected, setImportSelected] = useState('');
-    const libraryProfiles = JSON.parse(localStorage.getItem('my_wpi_library') || '{}');
-    const [localCustomProfiles, setLocalCustomProfiles] = useState({});
+    const [hasValidated, setHasValidated] = useState(false);
+    const [wpiEditor, setWpiEditor] = useState(null);
+    const reroutingSelectRef = useRef(null);
 
     useEffect(() => {
-        updateProjectData('traffic_data', form);
+        updateProjectData('traffic_data', serializeTrafficForm(form));
     }, [form, updateProjectData]);
 
     useEffect(() => {
-        const next = normalizeTrafficData({ ...INITIAL_STATE, ...(projectData.traffic_data || {}) });
+        const next = buildTrafficForm(projectData.traffic_data);
+        // Project imports can replace traffic data while this page remains mounted.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => JSON.stringify(next) !== JSON.stringify(prev) ? next : prev);
     }, [projectData.traffic_data]);
 
@@ -371,81 +425,128 @@ const TrafficData = ({ controller }) => {
     const handleRemarksChange = (html) => setForm(prev => ({ ...prev, remarks: html }));
 
     const handleClearAll = () => {
-        setForm(INITIAL_STATE);
-        setErrors(new Set());
+        setForm(buildTrafficForm(INITIAL_STATE));
         setValidationMsg('');
+        setHasValidated(false);
     };
 
     const handleWpiProfileChange = (profileName) => {
-        let newData = {};
-        if (WPI_DATABASE[profileName]) newData = WPI_DATABASE[profileName].data;
-        else if (localCustomProfiles[profileName]) newData = localCustomProfiles[profileName].data;
-        else if (libraryProfiles[profileName]) newData = libraryProfiles[profileName].data;
-        setForm(prev => ({ ...prev, wpi_profile: profileName, wpi_data: newData }));
-    };
-
-    const handleWpiCellChange = (vehicleKey, colKey, val) => {
-        setForm(prev => {
-            const nextWpi = { ...prev.wpi_data };
-            if (!nextWpi[vehicleKey]) nextWpi[vehicleKey] = {};
-            nextWpi[vehicleKey][colKey] = Number(val);
-            return { ...prev, wpi_data: nextWpi };
-        });
+        const profile = officialWpiProfile(profileName)
+            || form.wpi_custom_profiles.find((item) => item.metadata.name === profileName);
+        const data = normalizeWpiMatrix(profile?.data);
+        setForm(prev => ({
+            ...prev,
+            wpi_profile: profileName,
+            wpi_year: String(profile?.metadata?.year || new Date().getFullYear()),
+            wpi_data: data,
+            wpi_common_state: deriveCommonState(data),
+        }));
     };
 
     const handleNewWpi = () => {
-        const emptyData = Object.fromEntries(VEHICLES.map(v => [v.key, Object.fromEntries(WPI_COLUMNS.map(c => [c.key, 0]))]));
-        const newName = 'Custom (New)';
-        setLocalCustomProfiles(prev => ({ ...prev, [newName]: { metadata: { name: newName, year: new Date().getFullYear(), remark: 'New custom profile' }, data: emptyData } }));
-        setForm(prev => ({ ...prev, wpi_profile: newName, wpi_data: emptyData }));
+        setWpiEditor({
+            mode: 'new',
+            template: 'scratch',
+            metadata: {
+                id: '',
+                name: 'custom',
+                year: new Date().getFullYear(),
+                remark: '',
+                is_custom: true,
+            },
+            data: emptyWpiData(),
+            commonState: Object.fromEntries(WPI_COLUMNS.map(({ key }) => [key, true])),
+        });
     };
 
-    const handleSaveAsSubmit = () => {
-        if (!saveAsForm.name) return;
-        const newProfile = { metadata: { name: saveAsForm.name, year: saveAsForm.year, remark: saveAsForm.remark }, data: form.wpi_data };
-        setLocalCustomProfiles(prev => ({ ...prev, [saveAsForm.name]: newProfile }));
-        setForm(prev => ({ ...prev, wpi_profile: saveAsForm.name }));
-        setShowSaveAs(false);
+    const handleEditWpi = () => {
+        const profile = form.wpi_custom_profiles.find(
+            (item) => item.metadata.name === form.wpi_profile,
+        );
+        if (!profile) return;
+        setWpiEditor({
+            mode: 'edit',
+            template: profile.metadata.id,
+            metadata: { ...profile.metadata },
+            data: normalizeWpiMatrix(profile.data),
+            commonState: deriveCommonState(profile.data),
+        });
     };
 
     const handleDeleteWpi = () => {
-        if (WPI_DATABASE[form.wpi_profile]) return alert("Cannot delete official profiles.");
+        if (officialWpiProfile(form.wpi_profile)) return;
         if (window.confirm(`Delete profile "${form.wpi_profile}"?`)) {
-            const nextCustom = { ...localCustomProfiles };
-            delete nextCustom[form.wpi_profile];
-            setLocalCustomProfiles(nextCustom);
-            handleWpiProfileChange("2024");
+            const nextProfiles = form.wpi_custom_profiles.filter(
+                (profile) => profile.metadata.name !== form.wpi_profile,
+            );
+            const data = cloneData(WPI_DATABASE['2019'].data);
+            setForm(prev => ({
+                ...prev,
+                wpi_profile: '2019',
+                wpi_year: '2019',
+                wpi_data: data,
+                wpi_common_state: deriveCommonState(data),
+                wpi_custom_profiles: nextProfiles,
+            }));
         }
     };
 
-    const handleSaveToLibrary = () => {
-        const currentData = { metadata: { name: form.wpi_profile, year: new Date().getFullYear(), remark: 'Saved from project' }, data: form.wpi_data };
-        localStorage.setItem('my_wpi_library', JSON.stringify({ ...libraryProfiles, [form.wpi_profile]: currentData }));
-        setInfoMessage(`'${form.wpi_profile}' saved to library.`);
-        setShowInfoModal(true);
-    };
-
-    const handleImportSubmit = () => {
-        if (importSelected && libraryProfiles[importSelected]) {
-            setLocalCustomProfiles(prev => ({ ...prev, [importSelected]: libraryProfiles[importSelected] }));
-            setForm(prev => ({ ...prev, wpi_profile: importSelected, wpi_data: libraryProfiles[importSelected].data }));
-            setShowImportModal(false);
+    const saveWpiEditor = () => {
+        const name = wpiEditor.metadata.name.trim();
+        if (!name) {
+            setValidationMsg('WPI profile name is required.');
+            return;
         }
-    };
-
-    const handleRemoveFromLibrary = () => {
-        if (importSelected && window.confirm(`Remove '${importSelected}'?`)) {
-            const lib = { ...libraryProfiles };
-            delete lib[importSelected];
-            localStorage.setItem('my_wpi_library', JSON.stringify(lib));
-            setImportSelected('');
+        const duplicate = [
+            ...Object.keys(WPI_DATABASE),
+            ...form.wpi_custom_profiles
+                .filter((profile) => profile.metadata.id !== wpiEditor.metadata.id)
+                .map((profile) => profile.metadata.name),
+        ].some((profileName) => profileName.toLowerCase() === name.toLowerCase());
+        if (duplicate) {
+            setValidationMsg(`A WPI profile named "${name}" already exists.`);
+            return;
         }
+
+        const profile = {
+            metadata: {
+                ...wpiEditor.metadata,
+                id: wpiEditor.metadata.id || `wpi_custom_${crypto.randomUUID().slice(0, 8)}`,
+                name,
+                year: Number(wpiEditor.metadata.year),
+                is_custom: true,
+                hash: '',
+                is_shared: false,
+            },
+            data: cloneData(wpiEditor.data),
+        };
+        const nextProfiles = wpiEditor.mode === 'edit'
+            ? form.wpi_custom_profiles.map((item) => (
+                item.metadata.id === profile.metadata.id ? profile : item
+            ))
+            : [...form.wpi_custom_profiles, profile];
+
+        setForm(prev => ({
+            ...prev,
+            wpi_profile: profile.metadata.name,
+            wpi_year: String(profile.metadata.year),
+            wpi_data: cloneData(profile.data),
+            wpi_common_state: wpiEditor.commonState,
+            wpi_custom_profiles: nextProfiles,
+        }));
+        setValidationMsg('');
+        setWpiEditor(null);
     };
 
     const validate = () => {
         const messages = validateTrafficData(form);
+        setHasValidated(true);
         if (messages.length > 0) {
             setValidationMsg(messages.join(' '));
+            if (!form.alternate_road.alternate_road_carriageway) {
+                reroutingSelectRef.current?.focus();
+                reroutingSelectRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return { valid: false, errors: messages };
         }
         setValidationMsg('');
@@ -457,7 +558,7 @@ const TrafficData = ({ controller }) => {
             <SectionHeader title="Vehicle Traffic Data" />
             <div className="table-responsive mb-4">
                 <table className="table table-bordered table-sm text-center align-middle" style={{ backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)', marginBottom: 0 }}>
-                    <thead><tr><th style={{ width: '30%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicle Type</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicles / Day</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Accident %</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>PWR</th></tr></thead>
+                    <thead><tr><th style={{ width: '35%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicle Type</th><th style={{ width: '25%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicles / Day</th><th style={{ width: '20%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Accident (% of vehicles)</th><th style={{ width: '20%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Power to weight ratio (PWR)</th></tr></thead>
                     <tbody>
                         {VEHICLES.map(v => (
                             <tr key={v.key}>
@@ -470,7 +571,7 @@ const TrafficData = ({ controller }) => {
                                     const nextVehicles = { ...form.vehicles, [v.key]: { ...form.vehicles[v.key], accident_percentage: Number(e.target.value) } };
                                     setForm(prev => ({ ...prev, vehicles: nextVehicles }));
                                 }} /></td>
-                                <td className="p-0">{v.hasPwr ? <input type="number" step="0.01" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={(form.vehicles[v.key]?.pwr || 0).toFixed(2)} onChange={(e) => {
+                                <td className="p-0">{v.hasPwr ? <input type="number" step="0.01" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={Number(form.vehicles[v.key]?.pwr ?? v.defaultPwr).toFixed(2)} onChange={(e) => {
                                     const nextVehicles = { ...form.vehicles, [v.key]: { ...form.vehicles[v.key], pwr: Number(e.target.value) } };
                                     setForm(prev => ({ ...prev, vehicles: nextVehicles }));
                                 }} /> : <div className="text-muted">-</div>}</td>
@@ -480,22 +581,35 @@ const TrafficData = ({ controller }) => {
                 </table>
             </div>
 
-            <div className="mb-4 d-flex align-items-center gap-3">
-                <input type="checkbox" id="force_free_flow" className="form-check-input m-0" style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--app-primary-accent)' }} checked={form.force_free_flow} onChange={(e) => setForm(prev => ({ ...prev, force_free_flow: e.target.checked }))} />
-                <label htmlFor="force_free_flow" className="mb-0 fw-bold small" style={{ cursor: 'pointer' }}>Force free-flow conditions off-peak</label>
-            </div>
-
-            <SectionHeader title="Alternate Road Configuration" />
+            <SectionHeader title="Rerouting Road Configuration" />
             <div className="mb-4">
-                <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Alternate Road Carriageway *</label>
-                <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>Lane configuration of the alternate route - auto-fills capacity and width.</div>
-                <select className="form-select" value={form.alternate_road.alternate_road_carriageway} onChange={(e) => {
-                    const lane = LANE_TYPES.find(l => l.name === e.target.value);
-                    setForm(prev => ({ ...prev, alternate_road: { alternate_road_carriageway: e.target.value, carriage_width_in_m: lane ? lane.width : 0, hourly_capacity: lane ? lane.capacity : 0 } }));
-                }}><option value="">- Select -</option>{LANE_TYPES.map(l => <option key={l.code} value={l.name}>{l.name}</option>)}</select>
+                <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>
+                    Rerouting Road Configuration <span className="text-danger">*</span>
+                </label>
+                <div style={{ fontSize: '0.8rem', color: 'var(--app-text-muted)', marginBottom: '8px' }}>Lane configuration (auto-fills capacity and width).</div>
+                <select
+                    ref={reroutingSelectRef}
+                    required
+                    aria-required="true"
+                    aria-invalid={hasValidated && !form.alternate_road.alternate_road_carriageway ? 'true' : 'false'}
+                    className={`form-select ${hasValidated && !form.alternate_road.alternate_road_carriageway ? 'is-invalid' : ''}`}
+                    value={form.alternate_road.alternate_road_carriageway}
+                    onChange={(e) => {
+                        const lane = LANE_TYPES.find(l => l.name === e.target.value);
+                        setForm(prev => ({ ...prev, alternate_road: { alternate_road_carriageway: e.target.value, carriage_width_in_m: lane ? lane.width : 0, hourly_capacity: lane ? lane.capacity : 0 } }));
+                    }}
+                >
+                    <option value="">- Select -</option>
+                    {LANE_TYPES.map(l => <option key={l.code} value={l.name}>{l.name}</option>)}
+                </select>
+                {hasValidated && !form.alternate_road.alternate_road_carriageway && (
+                    <div className="invalid-feedback d-block">
+                        Alternate Road Carriageway type is not selected - choose the carriageway configuration available for traffic diversion during construction.
+                    </div>
+                )}
             </div>
             <InputField label="Carriageway Width" unit="(m)" required step="0.01" decimals={2} value={form.alternate_road.carriage_width_in_m} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, carriage_width_in_m: Number(v) } }))} />
-            <InputField label="Hourly Capacity" unit="(veh/hr)" required decimals={0} value={form.alternate_road.hourly_capacity} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, hourly_capacity: Number(v) } }))} />
+            <InputField label="Road Hourly Capacity" unit="(PCU/hr)" required decimals={0} value={form.alternate_road.hourly_capacity} onChange={(v) => setForm(prev => ({ ...prev, alternate_road: { ...prev.alternate_road, hourly_capacity: Number(v) } }))} />
 
             <SectionHeader title="Accident Severity Distribution" />
             <InputField label="Minor Injury" hint="Percentage of accidents resulting in minor injury" infoTitle={FIELD_INFO.minor_injury.title} infoMessage={FIELD_INFO.minor_injury.message} unit="(%)" step="0.01" decimals={2} value={form.severity.severity_minor} onChange={(v) => {
@@ -521,10 +635,10 @@ const TrafficData = ({ controller }) => {
             }} />
 
             <SectionHeader title="Road Parameters" />
-            <InputField label="Road Roughness" hint="Indicates the smoothness of the road surface; lower values mean smoother ride quality, higher values mean more unevenness measured in mm/km" unit="(mm/km)" decimals={0} value={form.road_params.road_roughness_mm_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_roughness_mm_per_km: Number(v) } }))} />
+            <InputField label="Road Roughness" hint="Indicates the smoothness of the road surface; lower values mean smoother ride quality, higher values mean more unevenness measured in mm/km" unit="(mm/km)" required decimals={0} value={form.road_params.road_roughness_mm_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_roughness_mm_per_km: Number(v) } }))} />
             <InputField label="Road Rise" hint="Upward gradient of the road, expressed as vertical increase in meters per kilometer (m/km)." unit="(m/km)" required step="0.001" decimals={3} value={form.road_params.road_rise_m_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_rise_m_per_km: Number(v) } }))} />
             <InputField label="Road Fall" hint="Downward gradient of the road, expressed as vertical decrease in meters per kilometer (m/km)." unit="(m/km)" required step="0.001" decimals={3} value={form.road_params.road_fall_m_per_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, road_fall_m_per_km: Number(v) } }))} />
-            <InputField label="Additional Rerouting Distance" hint="Distance travelled by the road users due to rerouting during construction." unit="(km)" step="0.001" decimals={3} value={form.road_params.additional_reroute_distance_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, additional_reroute_distance_km: Number(v) } }))} />
+            <InputField label="Rerouting Distance" hint="Distance travel by the road users due to rerouting during construction." unit="(km)" step="0.001" decimals={3} value={form.road_params.additional_reroute_distance_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, additional_reroute_distance_km: Number(v) } }))} />
             <InputField label="Rerouting Time" hint="Travel time incurred by road users due to rerouting during construction." unit="(min)" step="0.001" decimals={3} value={form.road_params.additional_travel_time_min} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, additional_travel_time_min: Number(v) } }))} />
             <InputField label="Crash Rate along Rerouting Route" hint="Number of accidents per million kilometers of road length per day." unit="(acc / M km)" required step="0.01" decimals={2} value={form.road_params.crash_rate_accidents_per_million_km} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, crash_rate_accidents_per_million_km: Number(v) } }))} />
             <InputField label="Work Zone Multiplier" hint="Multiplier applied to reflect higher accident risk or delays due to construction work zone conditions." required step="0.0001" decimals={4} value={form.road_params.work_zone_multiplier} onChange={(v) => setForm(prev => ({ ...prev, road_params: { ...prev.road_params, work_zone_multiplier: Number(v) } }))} />
@@ -543,46 +657,70 @@ const TrafficData = ({ controller }) => {
                     <table className="table table-bordered table-sm text-center align-middle" style={{ backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)', marginBottom: 0 }}>
                         <thead><tr><th style={{ width: '60%', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Hour Category</th><th style={{ backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Traffic Proportion (%)</th></tr></thead>
                         <tbody>
-                            {[...Array(form.num_peak_hours || 1)].map((_, i) => (
-                                <tr key={i}><td className="text-start ps-3 fw-bold">{form.num_peak_hours > 0 ? `Peak Hour ${i + 1}` : 'Peak Hour 1'}</td><td className="p-0">
-                                    <input type="number" step="0.01" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={((form.peak_distribution[`peak_hour_${i + 1}`] || 0.04) * 100).toFixed(2)} onChange={(e) => setForm(prev => ({ ...prev, peak_distribution: { ...prev.peak_distribution, [`peak_hour_${i + 1}`]: Number(e.target.value) / 100 } }))} /></td></tr>
+                            {[...Array(form.num_peak_hours)].map((_, i) => (
+                                <tr key={i}><td className="text-start ps-3 fw-bold">{`Peak Hour ${i + 1}`}</td><td className="p-0">
+                                    <input type="number" step="0.01" className="form-control text-end px-2 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={((form.peak_distribution[`peak_hour_${i + 1}`] ?? 0.04) * 100).toFixed(2)} onChange={(e) => setForm(prev => ({ ...prev, peak_distribution: { ...prev.peak_distribution, [`peak_hour_${i + 1}`]: Number(e.target.value) / 100 } }))} /></td></tr>
                             ))}
+                            <tr>
+                                <td className="text-start ps-3 fw-bold">Other Hours (Average)</td>
+                                <td className="text-end pe-3 fw-bold">
+                                    {(Math.max(0, 100 - Object.entries(form.peak_distribution)
+                                        .filter(([key]) => key.startsWith('peak_hour_'))
+                                        .slice(0, form.num_peak_hours)
+                                        .reduce((sum, [, value]) => sum + Number(value || 0) * 100, 0)) / Math.max(1, 24 - form.num_peak_hours)).toFixed(2)} %
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <SectionHeader title="WPI Adjustment Factors" />
+            <SectionHeader title="Wholesale Price Index (WPI) Adjustment Factors" />
             <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
                 <label className="fw-bold mb-0" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>WPI Profile:</label>
                 <select className="form-select w-auto" value={form.wpi_profile} onChange={(e) => handleWpiProfileChange(e.target.value)}>
                     {Object.keys(WPI_DATABASE).map(y => <option key={y} value={y}>{y}</option>)}
-                    {Object.keys(localCustomProfiles).map(p => <option key={p} value={p}>{p}</option>)}
+                    {form.wpi_custom_profiles.map(({ metadata }) => (
+                        <option key={metadata.id} value={metadata.name}>★ {metadata.name}</option>
+                    ))}
                 </select>
-                <div className="btn-group btn-group-sm">
-                    <button className="btn btn-outline-secondary" onClick={handleNewWpi}>+ New</button>
-                    <button className="btn btn-outline-secondary" onClick={() => setShowSaveAs(true)}>Save As</button>
-                </div>
+                <span className="text-success" title="Official profile loaded">✓</span>
                 <div className="ms-auto d-flex gap-2">
-                    <button className="btn btn-sm btn-outline-primary" onClick={handleSaveToLibrary}>Save to Library</button>
-                    <button className="btn btn-sm btn-outline-primary" onClick={() => setShowImportModal(true)}>Import</button>
+                    <button className="btn btn-sm btn-outline-secondary" onClick={handleNewWpi}>+ Add New</button>
+                    <button className="btn btn-sm btn-outline-secondary" disabled={Boolean(officialWpiProfile(form.wpi_profile))} onClick={handleEditWpi}>Edit</button>
+                    <button className="btn btn-sm btn-outline-secondary" disabled={Boolean(officialWpiProfile(form.wpi_profile))} onClick={handleDeleteWpi}>Delete</button>
                 </div>
             </div>
 
-            <div className="table-responsive mb-4" style={{ maxHeight: '500px', overflow: 'auto', border: '1px solid var(--app-border-mid)', borderRadius: '4px' }}>
-                <table className="table table-bordered table-sm text-center align-middle" style={{ backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)', marginBottom: 0 }}>
+            <div className="table-responsive mb-4" style={{ maxHeight: '560px', overflow: 'auto', border: '1px solid var(--app-border-mid)', borderRadius: '4px' }}>
+                <table className="table table-bordered table-sm text-center align-middle" style={{ minWidth: '1900px', tableLayout: 'fixed', backgroundColor: 'var(--app-bg-card)', borderColor: 'var(--app-border-mid)', marginBottom: 0 }}>
                     <thead>
-                        <tr><th rowSpan="2" className="text-start ps-2 border-end-0" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}></th><th colSpan="4" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Vehicle Cost</th><th colSpan="1" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Commodity</th><th colSpan="2" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Pass. & Crew</th><th colSpan="3" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>Medical Cost</th><th colSpan="1" style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>VOT Cost</th></tr>
-                        <tr>{WPI_COLUMNS.map(col => <th key={col.key} style={{ position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '12px 8px' }}>{col.label}</th>)}</tr>
+                        <tr>
+                            <th rowSpan="2" style={{ position: 'sticky', left: 0, top: 0, width: '150px', zIndex: 5, backgroundColor: 'var(--app-bg-alt)', borderColor: 'var(--app-border-mid)' }} />
+                            {WPI_GROUPS.map((group) => (
+                                <th key={group.label} colSpan={group.span} style={{ position: 'sticky', top: 0, zIndex: 3, backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 600, padding: '14px 8px' }}>
+                                    {group.label}
+                                </th>
+                            ))}
+                        </tr>
+                        <tr>{WPI_COLUMNS.map(col => <th key={col.key} style={{ position: 'sticky', top: '49px', zIndex: 3, width: '108px', backgroundColor: 'var(--app-bg-alt)', color: 'var(--app-text-primary)', borderColor: 'var(--app-border-mid)', fontWeight: 500, padding: '10px 8px', whiteSpace: 'normal' }}>{col.label}</th>)}</tr>
                     </thead>
                     <tbody>
-                        {['Common', ...VEHICLES.map(v => v.label)].map((rowLabel, rIdx) => {
-                            const vKey = rIdx === 0 ? 'small_cars' : VEHICLES[rIdx - 1].key;
+                        {['Common to All', ...VEHICLES.map(v => v.label)].map((rowLabel, rIdx) => {
+                            const vKey = rIdx === 0 ? null : VEHICLES[rIdx - 1].key;
                             return (
-                                <tr key={rowLabel}><td className="fw-bold text-start ps-3" style={{ whiteSpace: 'nowrap' }}>{rowLabel}</td>
+                                <tr key={rowLabel}><td className="fw-bold text-start ps-3" style={{ position: 'sticky', left: 0, zIndex: 2, width: '150px', whiteSpace: 'nowrap', backgroundColor: 'var(--app-bg-card)' }}>{rowLabel}</td>
                                     {WPI_COLUMNS.map(col => (
                                         <td key={col.key} className="p-0">
-                                            <input type="number" step="0.0001" className="form-control text-end pe-3 py-1" style={{ width: '100%', border: 'none', backgroundColor: 'var(--app-input-bg)', color: 'var(--app-text-primary)', height: '36px', outline: 'none' }} onFocus={e => e.target.style.backgroundColor = 'var(--app-bg-alt)'} onBlur={e => e.target.style.backgroundColor = 'var(--app-input-bg)'} value={(form.wpi_data?.[vKey]?.[col.key] || 0).toFixed(4)} onChange={(e) => handleWpiCellChange(vKey, col.key, e.target.value)} />
+                                            {vKey ? (
+                                                <div className="text-end px-3 py-2" style={{ minWidth: '108px', color: 'var(--app-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                                                    {getWpiValue(form.wpi_data, vKey, col.key).toFixed(4)}
+                                                </div>
+                                            ) : (
+                                                <div className="d-flex align-items-center justify-content-center" style={{ height: '36px' }}>
+                                                    <input type="checkbox" aria-label={`Common to all ${col.label}`} checked={Boolean(form.wpi_common_state[col.key])} readOnly />
+                                                </div>
+                                            )}
                                         </td>
                                     ))}
                                 </tr>
@@ -628,50 +766,135 @@ const TrafficData = ({ controller }) => {
                 </button>
             </div>
 
-            {/* Custom Modals */}
-            {showSaveAs && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-                    <div style={{ backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)', borderRadius: '8px', width: '400px', color: 'var(--app-text-primary)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-                        <div style={{ backgroundColor: 'var(--app-bg-alt)', padding: '12px 16px', borderBottom: '1px solid var(--app-border-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h6 className="m-0 fw-bold d-flex align-items-center gap-2">Save Profile As</h6>
-                            <button style={{ background: 'transparent', border: 'none', color: 'var(--app-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }} onMouseEnter={e => e.target.style.color = 'var(--app-text-primary)'} onMouseLeave={e => e.target.style.color = 'var(--app-text-muted)'} onClick={() => setShowSaveAs(false)}>×</button>
+            {wpiEditor && (
+                <div style={{ position: 'fixed', inset: 0, padding: '3vh 3vw', backgroundColor: 'rgba(0, 0, 0, 0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', width: 'min(1500px, 94vw)', maxHeight: '94vh', backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)', borderRadius: '8px', color: 'var(--app-text-primary)', boxShadow: '0 16px 40px rgba(0,0,0,0.55)', overflow: 'hidden' }}>
+                        <div style={{ backgroundColor: 'var(--app-bg-alt)', padding: '14px 18px', borderBottom: '1px solid var(--app-border-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h5 className="m-0 fw-bold">WPI Profile Editor</h5>
+                            <button type="button" aria-label="Close WPI editor" style={{ background: 'transparent', border: 'none', color: 'var(--app-text-muted)', fontSize: '1.4rem', cursor: 'pointer' }} onClick={() => setWpiEditor(null)}>×</button>
                         </div>
-                        <div style={{ padding: '20px' }}>
-                            <div className="mb-3">
-                                <label className="fw-bold mb-1 d-block" style={{ fontSize: '0.9rem', color: 'var(--app-text-secondary)', transition: 'color 0.3s' }}>Profile Name</label>
-                                <input type="text" className="form-control" value={saveAsForm.name} onChange={e => setSaveAsForm({...saveAsForm, name: e.target.value})} />
+                        <div style={{ padding: '18px', overflow: 'auto' }}>
+                            {wpiEditor.mode === 'new' && (
+                                <div className="mb-3">
+                                    <label className="fw-bold mb-1 d-block">Based on Template:</label>
+                                    <select
+                                        className="form-select"
+                                        value={wpiEditor.template}
+                                        onChange={(event) => {
+                                            const template = event.target.value;
+                                            const profile = officialWpiProfile(template)
+                                                || form.wpi_custom_profiles.find((item) => item.metadata.id === template);
+                                            const data = template === 'scratch'
+                                                ? emptyWpiData()
+                                                : cloneData(profile?.data || emptyWpiData());
+                                            setWpiEditor(prev => ({
+                                                ...prev,
+                                                template,
+                                                data,
+                                                commonState: deriveCommonState(data),
+                                            }));
+                                        }}
+                                    >
+                                        <option value="scratch">Scratch (all 1.0)</option>
+                                        {Object.entries(WPI_DATABASE).map(([name, profile]) => <option key={profile.metadata.id} value={name}>Clone: {name}</option>)}
+                                        {form.wpi_custom_profiles.map((profile) => <option key={profile.metadata.id} value={profile.metadata.id}>Clone: {profile.metadata.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            <div className="row g-3 mb-3">
+                                <div className="col-md-4">
+                                    <label className="fw-bold mb-1 d-block">Profile Name:</label>
+                                    <input className="form-control" value={wpiEditor.metadata.name} onChange={(event) => setWpiEditor(prev => ({ ...prev, metadata: { ...prev.metadata, name: event.target.value } }))} />
+                                </div>
+                                <div className="col-md-3">
+                                    <label className="fw-bold mb-1 d-block">Year (metadata):</label>
+                                    <input type="number" min="1900" max="2200" className="form-control" value={wpiEditor.metadata.year} onChange={(event) => setWpiEditor(prev => ({ ...prev, metadata: { ...prev.metadata, year: event.target.value } }))} />
+                                </div>
+                                <div className="col-md-5">
+                                    <label className="fw-bold mb-1 d-block">Remark:</label>
+                                    <input className="form-control" placeholder="Optional remarks..." value={wpiEditor.metadata.remark || ''} onChange={(event) => setWpiEditor(prev => ({ ...prev, metadata: { ...prev.metadata, remark: event.target.value } }))} />
+                                </div>
+                            </div>
+                            <div className="fw-bold mb-2">Adjust WPI Ratios:</div>
+                            <div className="table-responsive" style={{ border: '1px solid var(--app-border-mid)', borderRadius: '4px' }}>
+                                <table className="table table-bordered table-sm text-center align-middle mb-0" style={{ minWidth: '1900px', tableLayout: 'fixed' }}>
+                                    <thead>
+                                        <tr>
+                                            <th rowSpan="2" style={{ width: '150px', backgroundColor: 'var(--app-bg-alt)' }} />
+                                            {WPI_GROUPS.map((group) => <th key={group.label} colSpan={group.span} style={{ backgroundColor: 'var(--app-bg-alt)', padding: '12px 8px' }}>{group.label}</th>)}
+                                        </tr>
+                                        <tr>{WPI_COLUMNS.map((column) => <th key={column.key} style={{ width: '108px', backgroundColor: 'var(--app-bg-alt)', padding: '10px 8px', whiteSpace: 'normal' }}>{column.label}</th>)}</tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td className="fw-bold text-start ps-3">Common to All</td>
+                                            {WPI_COLUMNS.map((column) => (
+                                                <td key={column.key}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(wpiEditor.commonState[column.key])}
+                                                        onChange={(event) => {
+                                                            const checked = event.target.checked;
+                                                            const firstValue = getWpiValue(wpiEditor.data, VEHICLES[0].key, column.key);
+                                                            setWpiEditor(prev => {
+                                                                const data = cloneData(prev.data);
+                                                                if (checked) {
+                                                                    VEHICLES.forEach(({ key }) => {
+                                                                        data[key][column.key] = firstValue;
+                                                                    });
+                                                                }
+                                                                return {
+                                                                    ...prev,
+                                                                    data,
+                                                                    commonState: { ...prev.commonState, [column.key]: checked },
+                                                                };
+                                                            });
+                                                        }}
+                                                    />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        {VEHICLES.map((vehicle, vehicleIndex) => (
+                                            <tr key={vehicle.key}>
+                                                <td className="fw-bold text-start ps-3">{vehicle.label}</td>
+                                                {WPI_COLUMNS.map((column) => {
+                                                    const locked = wpiEditor.commonState[column.key] && vehicleIndex > 0;
+                                                    return (
+                                                        <td key={column.key} className="p-0">
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.0001"
+                                                                readOnly={locked}
+                                                                className="form-control text-end px-2 py-2 rounded-0 border-0"
+                                                                style={{ minWidth: '108px', opacity: locked ? 0.65 : 1 }}
+                                                                value={getWpiValue(wpiEditor.data, vehicle.key, column.key)}
+                                                                onChange={(event) => {
+                                                                    const value = Number(event.target.value);
+                                                                    setWpiEditor(prev => {
+                                                                        const data = cloneData(prev.data);
+                                                                        data[vehicle.key][column.key] = value;
+                                                                        if (vehicleIndex === 0 && prev.commonState[column.key]) {
+                                                                            VEHICLES.forEach(({ key }) => {
+                                                                                data[key][column.key] = value;
+                                                                            });
+                                                                        }
+                                                                        return { ...prev, data };
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <div style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end', borderTop: 'none', backgroundColor: 'var(--app-bg-card)', gap: '8px' }}>
-                            <button className="btn" style={{ borderColor: 'transparent', color: 'var(--app-text-primary)', backgroundColor: 'transparent' }} onMouseEnter={e => e.target.style.backgroundColor = 'rgba(255,255,255,0.1)'} onMouseLeave={e => e.target.style.backgroundColor = 'transparent'} onClick={() => setShowSaveAs(false)}>Cancel</button>
-                            <button className="btn" style={{ backgroundColor: 'var(--app-primary-accent)', borderColor: 'var(--app-primary-accent)', color: 'var(--app-btn-primary-text)', borderRadius: '6px', padding: '6px 20px' }} onMouseEnter={e => e.target.style.filter = 'brightness(0.9)'} onMouseLeave={e => e.target.style.filter = 'none'} onClick={handleSaveAsSubmit}>OK</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showInfoModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-                    <div style={{ backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)', borderRadius: '8px', width: '400px', color: 'var(--app-text-primary)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-                        <div style={{ backgroundColor: 'var(--app-bg-alt)', padding: '12px 16px', borderBottom: '1px solid var(--app-border-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><h6>Info</h6><button style={{ background: 'transparent', border: 'none', color: 'var(--app-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }} onMouseEnter={e => e.target.style.color = 'var(--app-text-primary)'} onMouseLeave={e => e.target.style.color = 'var(--app-text-muted)'} onClick={() => setShowInfoModal(false)}>×</button></div>
-                        <div style={{ padding: '20px' }}>{infoMessage}</div>
-                        <div style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end', borderTop: 'none', backgroundColor: 'var(--app-bg-card)', gap: '8px' }}><button className="btn" style={{ backgroundColor: 'var(--app-primary-accent)', borderColor: 'var(--app-primary-accent)', color: 'var(--app-btn-primary-text)', borderRadius: '6px', padding: '6px 20px' }} onMouseEnter={e => e.target.style.filter = 'brightness(0.9)'} onMouseLeave={e => e.target.style.filter = 'none'} onClick={() => setShowInfoModal(false)}>OK</button></div>
-                    </div>
-                </div>
-            )}
-
-            {showImportModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-                    <div style={{ backgroundColor: 'var(--app-bg-card)', border: '1px solid var(--app-border-mid)', borderRadius: '8px', width: '400px', color: 'var(--app-text-primary)', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-                        <div style={{ backgroundColor: 'var(--app-bg-alt)', padding: '12px 16px', borderBottom: '1px solid var(--app-border-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><h6>Import from Library</h6><button style={{ background: 'transparent', border: 'none', color: 'var(--app-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }} onMouseEnter={e => e.target.style.color = 'var(--app-text-primary)'} onMouseLeave={e => e.target.style.color = 'var(--app-text-muted)'} onClick={() => setShowImportModal(false)}>×</button></div>
-                        <div style={{ padding: '20px' }}>
-                            <select className="form-select" value={importSelected} onChange={e => setImportSelected(e.target.value)}>
-                                <option value="">- Select Profile -</option>
-                                {Object.keys(libraryProfiles).map(k => <option key={k} value={k}>{k}</option>)}
-                            </select>
-                        </div>
-                        <div style={{ padding: '16px', display: 'flex', justifyContent: 'flex-end', borderTop: 'none', backgroundColor: 'var(--app-bg-card)', gap: '8px' }}>
-                            <button className="btn" style={{ backgroundColor: 'var(--app-primary-accent)', borderColor: 'var(--app-primary-accent)', color: 'var(--app-btn-primary-text)', borderRadius: '6px', padding: '6px 20px' }} onMouseEnter={e => e.target.style.filter = 'brightness(0.9)'} onMouseLeave={e => e.target.style.filter = 'none'} onClick={handleImportSubmit}>Import</button>
+                        <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--app-border-mid)', gap: '8px', backgroundColor: 'var(--app-bg-alt)' }}>
+                            <button className="btn btn-outline-secondary" onClick={() => setWpiEditor(null)}>Cancel</button>
+                            <button className="btn" style={{ backgroundColor: 'var(--app-primary-accent)', color: 'var(--app-btn-primary-text)' }} onClick={saveWpiEditor}>Save</button>
                         </div>
                     </div>
                 </div>
