@@ -7,11 +7,11 @@ import TrafficEmissions from './TrafficEmissions';
 import SocialCost from './SocialCost';
 
 const TABS = [
-    { key: 'Material', label: 'Material Emissions', component: MaterialEmissions },
-    { key: 'Transportation', label: 'Transportation Emissions', component: TransportationEmissions },
-    { key: 'Machinery', label: 'Machinery Emissions', component: MachineryEmissions },
-    { key: 'Traffic', label: 'Traffic Diversion Emissions', component: TrafficEmissions },
-    { key: 'SocialCost', label: 'Social Cost of Carbon', component: SocialCost },
+    { key: 'Material',       label: 'Material Emissions',          component: MaterialEmissions },
+    { key: 'Transportation', label: 'Transportation Emissions',    component: TransportationEmissions },
+    { key: 'Machinery',      label: 'Machinery Emissions',         component: MachineryEmissions },
+    { key: 'Traffic',        label: 'Traffic Diversion Emissions', component: TrafficEmissions },
+    { key: 'SocialCost',     label: 'Social Cost of Carbon',       component: SocialCost },
 ];
 
 const CarbonEmissionContainer = ({ controller, initialTab = 'Material', setActiveNode }) => {

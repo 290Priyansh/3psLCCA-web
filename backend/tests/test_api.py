@@ -41,3 +41,5 @@ def test_calculate_returns_core_results(global_project: dict) -> None:
     assert payload["status"] == "success"
     assert payload["results"]
     assert payload["validation"]["errors"] == []
+
+

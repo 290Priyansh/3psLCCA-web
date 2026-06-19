@@ -5,6 +5,7 @@ import { AiOutlineRedo } from 'react-icons/ai';
 import NewProject from './NewProject';
 import SettingsModal from './SettingsModal';
 import { projectStorageService } from '../../lib/projectStorageService';
+import { import3psFile } from '../../utils/projectImport';
 
 // Base Imports
 import Logo3psLCCA from '../../assets/logo-3psLCCA.svg';
@@ -111,6 +112,8 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
     const fileInputRef = useRef(null);
     // Context menu state
     const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, project: null });
+    const [importStatus, setImportStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
+    const [importMessage, setImportMessage] = useState('');
 
     const fetchProjects = async () => {
         const list = await projectStorageService.listProjects();
@@ -163,28 +166,63 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
             return 0;
         });
 
-    // Handle file upload for .3psLCCA project files
-    const handleFileUpload = (event) => {
+    // Handle file upload for .3ps project files
+    const handleFileUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const projectData = JSON.parse(e.target.result);
-                const importedProject = {
-                    id: projectData.project?.id || Date.now(),
-                    name: projectData.project?.name || file.name.replace('.3psLCCA', ''),
-                    date: 'just now'
-                };
-                setProjects(prev => [...prev, importedProject]);
-                onProjectOpen(importedProject.id, importedProject.name);
-            } catch (err) {
-                alert('Invalid project file format');
-            }
-        };
-        reader.readAsText(file);
-        event.target.value = ''; // Reset input
+
+        // Reset file input value to allow uploading the same file again
+        event.target.value = '';
+
+        // 1. Validate file extension
+        if (!file.name.endsWith('.3ps')) {
+            setImportMessage('Invalid file type. Please select a valid .3ps file.');
+            setImportStatus('error');
+            return;
+        }
+
+        setImportStatus('loading');
+        setImportMessage('');
+
+        try {
+            // Extract and parse ZIP content 100% client-side
+            const arrayBuffer = await file.arrayBuffer();
+            const importedProjectData = await import3psFile(arrayBuffer);
+
+            const projectId = importedProjectData.id || `proj_${Date.now()}`;
+            const projectName = importedProjectData.name || importedProjectData.general_info?.project_name || file.name.replace(/\.3ps$/, '');
+
+            importedProjectData.id = projectId;
+            importedProjectData.name = projectName;
+
+            // 2. Persist using projectStorageService (offline-first, localStorage + Appwrite sync)
+            await projectStorageService.saveProject(projectId, importedProjectData);
+
+            // 3. Update local projects list
+            const newProjectItem = {
+                id: projectId,
+                name: projectName,
+                date: new Date().toLocaleDateString()
+            };
+
+            setProjects(prev => {
+                const filtered = prev.filter(p => p.id !== projectId);
+                return [newProjectItem, ...filtered];
+            });
+
+            setImportMessage(`Project "${projectName}" imported and loaded successfully.`);
+            setImportStatus('success');
+
+            // 4. Automatically open project after a short delay
+            setTimeout(() => {
+                onProjectOpen(projectId, projectName);
+            }, 1000);
+
+        } catch (err) {
+            console.error("Import processing failed:", err);
+            setImportMessage(err.message || 'An error occurred while importing the .3ps file.');
+            setImportStatus('error');
+        }
     };
 
     const triggerFileUpload = () => {
@@ -549,12 +587,12 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
                         </>
                     )}
 
-                    {/* Hidden file input for .3psLCCA project upload */}
+                    {/* Hidden file input for .3ps project upload */}
                     <input
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileUpload}
-                        accept=".3psLCCA"
+                        accept=".3ps"
                         style={{ display: 'none' }}
                     />
 
@@ -602,6 +640,36 @@ const Homepage = ({ onProjectOpen, onProjectCreate, userName = 'ritik!', isDarkM
                     });
                 }}
             />
+            {/* Import Status Overlays / Toasts */}
+            {importStatus === 'loading' && (
+                <div className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 9999, transition: 'all 0.3s ease' }}>
+                    <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 className="text-white fw-bold">Importing project...</h5>
+                    <p className="text-light">Extracting chunks, validating headers, and building project structure.</p>
+                </div>
+            )}
+
+            {importStatus === 'error' && (
+                <div className="position-fixed bottom-0 end-0 m-4 p-3 shadow-lg border-0 alert alert-danger alert-dismissible fade show" role="alert" style={{ zIndex: 9999, maxWidth: '400px', borderRadius: '10px' }}>
+                    <h6 className="alert-heading fw-bold d-flex align-items-center gap-2 mb-1">
+                        ❌ Import Failed
+                    </h6>
+                    <p className="mb-0 small">{importMessage}</p>
+                    <button type="button" className="btn-close" onClick={() => setImportStatus('idle')}></button>
+                </div>
+            )}
+
+            {importStatus === 'success' && (
+                <div className="position-fixed bottom-0 end-0 m-4 p-3 shadow-lg border-0 alert alert-success alert-dismissible fade show" role="alert" style={{ zIndex: 9999, maxWidth: '400px', borderRadius: '10px' }}>
+                    <h6 className="alert-heading fw-bold d-flex align-items-center gap-2 mb-1">
+                        ✅ Success
+                    </h6>
+                    <p className="mb-0 small">{importMessage}</p>
+                    <button type="button" className="btn-close" onClick={() => setImportStatus('idle')}></button>
+                </div>
+            )}
         </div>
     );
 };
